@@ -1,0 +1,1292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RustGuard — C→Rust Transpilation Analyser</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg0: #0c0e12;
+  --bg1: #111318;
+  --bg2: #181b22;
+  --bg3: #1f2330;
+  --border: #2a2f3d;
+  --border-hi: #3d4459;
+  --text: #d4d8e8;
+  --text-dim: #6b7394;
+  --text-dimmer: #3d4259;
+  --rust: #e8633a;
+  --rust-dim: #7a2e14;
+  --rust-glow: rgba(232,99,58,0.15);
+  --green: #3dd68c;
+  --green-dim: #1a5c3e;
+  --yellow: #f5c842;
+  --yellow-dim: #5c4a14;
+  --red: #e84040;
+  --red-dim: #5c1414;
+  --blue: #4a9eff;
+  --blue-dim: #1a3a5c;
+  --purple: #9b7dff;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-ui: 'Syne', sans-serif;
+  --radius: 6px;
+  --radius-lg: 10px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--bg0);
+  color: var(--text);
+  font-family: var(--font-ui);
+  overflow: hidden;
+}
+
+/* ── TOP BAR ── */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  height: 52px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg1);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo-icon {
+  width: 28px;
+  height: 28px;
+  background: var(--rust);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.logo-text {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #fff;
+}
+
+.logo-sub {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-weight: 300;
+  letter-spacing: 0.04em;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: 3px;
+  letter-spacing: 0.06em;
+  font-weight: 500;
+}
+
+.badge-rust { background: var(--rust-dim); color: var(--rust); border: 1px solid var(--rust-dim); }
+.badge-research { background: var(--blue-dim); color: var(--blue); border: 1px solid #1e3d5c; }
+
+/* ── LAYOUT ── */
+.app {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 52px);
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg1);
+  flex-shrink: 0;
+}
+
+.toolbar-label {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  letter-spacing: 0.06em;
+  margin-right: 4px;
+}
+
+.toggle-group {
+  display: flex;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.toggle-btn {
+  padding: 5px 12px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  transition: all 0.15s;
+  letter-spacing: 0.04em;
+}
+
+.toggle-btn.active {
+  background: var(--rust);
+  color: #fff;
+}
+
+.toggle-btn:hover:not(.active) { color: var(--text); background: var(--bg3); }
+
+.spacer { flex: 1; }
+
+.btn-analyze {
+  padding: 7px 20px;
+  background: var(--rust);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-analyze::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.btn-analyze:hover { background: #f07040; transform: translateY(-1px); }
+.btn-analyze:active { transform: translateY(0); }
+.btn-analyze:disabled { background: var(--rust-dim); cursor: not-allowed; transform: none; }
+
+.btn-clear {
+  padding: 6px 12px;
+  background: transparent;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+  letter-spacing: 0.04em;
+}
+.btn-clear:hover { color: var(--text); border-color: var(--border-hi); }
+
+.cargo-toggle {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-dim);
+  cursor: pointer;
+  user-select: none;
+}
+
+.cargo-toggle input[type=checkbox] {
+  accent-color: var(--rust);
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+}
+
+/* ── MAIN SPLIT ── */
+.workspace {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ── EDITORS ── */
+.editors-panel {
+  display: flex;
+  flex-direction: column;
+  width: 52%;
+  border-right: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.editor-pane {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
+.editor-pane + .editor-pane {
+  border-top: 1px solid var(--border);
+}
+
+.pane-header {
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  height: 34px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  gap: 8px;
+}
+
+.pane-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.pane-dot-rust { background: var(--rust); box-shadow: 0 0 8px var(--rust); }
+.pane-dot-c { background: var(--blue); box-shadow: 0 0 8px var(--blue); }
+
+.pane-title {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--text);
+}
+
+.pane-hint {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-dimmer);
+  margin-left: auto;
+  letter-spacing: 0.04em;
+}
+
+.editor-wrapper {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+.line-numbers {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 44px;
+  padding: 14px 0;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  line-height: 1.6;
+  color: var(--text-dimmer);
+  text-align: right;
+  padding-right: 10px;
+  pointer-events: none;
+  z-index: 2;
+  background: var(--bg1);
+  border-right: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.line-numbers div { height: 19.2px; }
+
+textarea.code-editor {
+  position: absolute;
+  inset: 0;
+  left: 44px;
+  width: calc(100% - 44px);
+  padding: 14px 16px;
+  background: var(--bg1);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  border: none;
+  outline: none;
+  resize: none;
+  tab-size: 4;
+  white-space: pre;
+  overflow: auto;
+  caret-color: var(--rust);
+}
+
+textarea.code-editor::selection { background: rgba(232,99,58,0.25); }
+
+textarea.code-editor::placeholder {
+  color: var(--text-dimmer);
+  font-style: italic;
+}
+
+/* ── RESULTS PANEL ── */
+.results-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg0);
+}
+
+.results-header {
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg1);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.results-title {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
+.result-count-badge {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  padding: 2px 7px;
+  border-radius: 3px;
+  font-weight: 600;
+}
+
+.elapsed {
+  margin-left: auto;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-dimmer);
+}
+
+/* metrics strip */
+.metrics-strip {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.metric-card {
+  flex: 1;
+  padding: 12px 16px;
+  border-right: 1px solid var(--border);
+  transition: background 0.2s;
+}
+
+.metric-card:last-child { border-right: none; }
+.metric-card:hover { background: var(--bg2); }
+
+.metric-label {
+  font-size: 9px;
+  font-family: var(--font-mono);
+  letter-spacing: 0.1em;
+  color: var(--text-dimmer);
+  text-transform: uppercase;
+  margin-bottom: 5px;
+}
+
+.metric-value {
+  font-size: 20px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  line-height: 1;
+}
+
+.metric-sub {
+  font-size: 9px;
+  font-family: var(--font-mono);
+  color: var(--text-dimmer);
+  margin-top: 4px;
+}
+
+/* filter tabs */
+.filter-row {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  overflow-x: auto;
+}
+
+.filter-tab {
+  padding: 8px 16px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+  white-space: nowrap;
+  letter-spacing: 0.04em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.filter-tab:hover { color: var(--text); background: var(--bg2); }
+.filter-tab.active { color: var(--text); border-bottom-color: var(--rust); }
+
+.filter-tab .count-pill {
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-weight: 700;
+}
+
+/* issue list */
+.issues-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+.issues-scroll::-webkit-scrollbar { width: 4px; }
+.issues-scroll::-webkit-scrollbar-track { background: transparent; }
+.issues-scroll::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 2px; }
+
+.issue-item {
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.12s;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.issue-item:hover { background: var(--bg2); }
+.issue-item:last-child { border-bottom: none; }
+
+.issue-sev {
+  width: 5px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  align-self: stretch;
+  min-height: 36px;
+}
+
+.sev-error { background: var(--red); }
+.sev-warning { background: var(--yellow); }
+.sev-info { background: var(--blue); }
+.sev-hint { background: var(--purple); }
+
+.issue-body { flex: 1; min-width: 0; }
+
+.issue-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.issue-code {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 3px;
+  letter-spacing: 0.06em;
+}
+
+.code-error   { background: var(--red-dim);    color: var(--red); }
+.code-warning { background: var(--yellow-dim); color: var(--yellow); }
+.code-info    { background: var(--blue-dim);   color: var(--blue); }
+.code-hint    { background: #2a1f4a;           color: var(--purple); }
+
+.issue-loc {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-dimmer);
+  margin-left: auto;
+}
+
+.issue-msg {
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--text);
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.issue-snippet {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-dimmer);
+  margin-top: 5px;
+  padding: 4px 8px;
+  background: var(--bg2);
+  border-radius: 3px;
+  border-left: 2px solid var(--border-hi);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.issue-suggestion {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--green);
+  margin-top: 5px;
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+}
+
+.issue-suggestion::before { content: '→'; flex-shrink: 0; }
+
+/* empty / loading states */
+.state-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 40px;
+  color: var(--text-dimmer);
+}
+
+.state-icon {
+  font-size: 40px;
+  opacity: 0.4;
+}
+
+.state-msg {
+  font-size: 13px;
+  font-family: var(--font-mono);
+  text-align: center;
+  line-height: 1.7;
+  max-width: 300px;
+}
+
+.state-msg strong { color: var(--text-dim); }
+
+/* spinner */
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--border);
+  border-top-color: var(--rust);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* sample buttons */
+.sample-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.sample-btn {
+  padding: 5px 12px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-dim);
+  font-size: 11px;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  transition: all 0.15s;
+  letter-spacing: 0.03em;
+}
+
+.sample-btn:hover { border-color: var(--rust); color: var(--rust); background: var(--rust-glow); }
+
+/* error state */
+.error-panel {
+  margin: 16px 20px;
+  padding: 12px 16px;
+  background: var(--red-dim);
+  border: 1px solid var(--red);
+  border-radius: var(--radius);
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--red);
+  line-height: 1.6;
+}
+
+/* empty results */
+.all-clear {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 40px;
+  color: var(--green);
+}
+
+.all-clear-icon { font-size: 36px; }
+.all-clear-msg { font-size: 13px; font-family: var(--font-mono); }
+
+/* responsive resize handle */
+.resize-handle {
+  width: 3px;
+  background: var(--border);
+  cursor: col-resize;
+  flex-shrink: 0;
+  transition: background 0.15s;
+  position: relative;
+}
+.resize-handle:hover,
+.resize-handle.dragging { background: var(--rust); }
+
+/* ── SCROLLBARS ── */
+textarea.code-editor::-webkit-scrollbar { width: 4px; height: 4px; }
+textarea.code-editor::-webkit-scrollbar-track { background: transparent; }
+textarea.code-editor::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 2px; }
+
+/* ── ENTRY ANIMATION ── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.issue-item {
+  animation: fadeUp 0.2s ease both;
+}
+
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">🦀</div>
+    <div>
+      <div class="logo-text">RustGuard</div>
+      <div class="logo-sub">C → Rust Transpilation Analyser</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <span class="badge badge-research">Wu et al. 2025</span>
+    <span class="badge badge-rust">v0.3</span>
+  </div>
+</header>
+
+<div class="app">
+  <div class="toolbar">
+    <span class="toolbar-label">MODE</span>
+    <div class="toggle-group">
+      <button class="toggle-btn active" id="modeRegex" onclick="setMode('regex')">REGEX</button>
+      <button class="toggle-btn" id="modeAst" onclick="setMode('ast')">AST</button>
+      <button class="toggle-btn" id="modeFull" onclick="setMode('full')">FULL</button>
+    </div>
+
+    <label class="cargo-toggle" title="Runs cargo check — requires Rust toolchain on server, takes ~5s">
+      <input type="checkbox" id="cargoCheck">
+      <span>cargo check</span>
+    </label>
+
+    <div class="spacer"></div>
+
+    <button class="btn-clear" onclick="clearAll()">CLEAR</button>
+    <button class="btn-analyze" id="analyzeBtn" onclick="runAnalysis()">
+      <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+        <path d="M6.5 1L12 6.5L6.5 12M1 6.5H12" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      ANALYSE
+    </button>
+  </div>
+
+  <div class="workspace" id="workspace">
+    <!-- Left: editors -->
+    <div class="editors-panel" id="editorsPanel">
+
+      <!-- Rust editor -->
+      <div class="editor-pane" id="rustPane">
+        <div class="pane-header">
+          <div class="pane-dot pane-dot-rust"></div>
+          <span class="pane-title">RUST CODE</span>
+          <span class="pane-hint">transpiled / LLM-generated</span>
+        </div>
+        <div class="editor-wrapper" id="rustWrapper">
+          <div class="line-numbers" id="rustLineNums"></div>
+          <textarea
+            class="code-editor"
+            id="rustEditor"
+            placeholder="// Paste your transpiled Rust code here...
+// Or click one of the examples below.
+
+fn main() {
+    // LLM-generated or c2rust output goes here
+}"
+            spellcheck="false"
+            oninput="syncLineNums('rust')"
+            onscroll="syncScroll('rust')"
+          ></textarea>
+        </div>
+      </div>
+
+      <!-- C editor -->
+      <div class="editor-pane" id="cPane">
+        <div class="pane-header">
+          <div class="pane-dot pane-dot-c"></div>
+          <span class="pane-title">C SOURCE</span>
+          <span class="pane-hint">original (optional — enables VRR check)</span>
+        </div>
+        <div class="editor-wrapper" id="cWrapper">
+          <div class="line-numbers" id="cLineNums"></div>
+          <textarea
+            class="code-editor"
+            id="cEditor"
+            placeholder="// Paste the original C source here (optional).
+// Enables vulnerability retention rate (VRR) analysis.
+
+#include <stdio.h>
+
+void example(char *input) {
+    char buf[64];
+    strcpy(buf, input); // ← VRR will flag this
+}"
+            spellcheck="false"
+            oninput="syncLineNums('c')"
+            onscroll="syncScroll('c')"
+          ></textarea>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Resize handle -->
+    <div class="resize-handle" id="resizeHandle"></div>
+
+    <!-- Right: results -->
+    <div class="results-panel" id="resultsPanel">
+
+      <div class="results-header" id="resultsHeader">
+        <span class="results-title">RESULTS</span>
+        <span id="resultsCountBadge"></span>
+        <span class="elapsed" id="elapsed"></span>
+      </div>
+
+      <!-- Metrics strip (hidden until results) -->
+      <div class="metrics-strip" id="metricsStrip" style="display:none">
+        <div class="metric-card">
+          <div class="metric-label">SSS</div>
+          <div class="metric-value" id="mSSS">—</div>
+          <div class="metric-sub">semantic safety</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">UEI</div>
+          <div class="metric-value" id="mUEI">—</div>
+          <div class="metric-sub">unsafe exposure</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">VRR</div>
+          <div class="metric-value" id="mVRR">—</div>
+          <div class="metric-sub">vuln retained</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">LINES</div>
+          <div class="metric-value" id="mLines">—</div>
+          <div class="metric-sub">rust code</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">FNS</div>
+          <div class="metric-value" id="mFns">—</div>
+          <div class="metric-sub">functions</div>
+        </div>
+      </div>
+
+      <!-- Filter tabs (hidden until results) -->
+      <div class="filter-row" id="filterRow" style="display:none">
+        <button class="filter-tab active" id="tabAll" onclick="filterIssues('all')">
+          ALL <span class="count-pill" id="pillAll" style="background:#2a2f3d;color:#6b7394">0</span>
+        </button>
+        <button class="filter-tab" id="tabError" onclick="filterIssues('error')">
+          ERRORS <span class="count-pill" id="pillError" style="background:#5c1414;color:#e84040">0</span>
+        </button>
+        <button class="filter-tab" id="tabWarning" onclick="filterIssues('warning')">
+          WARNINGS <span class="count-pill" id="pillWarning" style="background:#5c4a14;color:#f5c842">0</span>
+        </button>
+        <button class="filter-tab" id="tabInfo" onclick="filterIssues('info')">
+          INFO <span class="count-pill" id="pillInfo" style="background:#1a3a5c;color:#4a9eff">0</span>
+        </button>
+        <button class="filter-tab" id="tabHint" onclick="filterIssues('hint')">
+          HINTS <span class="count-pill" id="pillHint" style="background:#2a1f4a;color:#9b7dff">0</span>
+        </button>
+      </div>
+
+      <!-- Dynamic content area -->
+      <div id="resultsBody" style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+        <!-- Initial state -->
+        <div class="state-panel" id="emptyState">
+          <div class="state-icon">🔍</div>
+          <div class="state-msg">
+            <strong>Paste your transpiled Rust code</strong> and click Analyse.<br><br>
+            Detects unsafe blocks, raw pointers, LLM hallucination patterns, aliasing artifacts, and C vulnerability retention.<br><br>
+            Based on <strong>Wu et al. (2025)</strong>
+          </div>
+          <div class="sample-buttons">
+            <button class="sample-btn" onclick="loadSample('unsafe')">unsafe sample</button>
+            <button class="sample-btn" onclick="loadSample('llm')">llm hallucination</button>
+            <button class="sample-btn" onclick="loadSample('aliasing')">aliasing sample</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+// ── STATE ────────────────────────────────────────────────────────────────────
+let currentMode = 'regex';
+let allIssues = [];
+let currentFilter = 'all';
+
+// ── LINE NUMBERS ─────────────────────────────────────────────────────────────
+function syncLineNums(id) {
+  const ta = document.getElementById(id === 'rust' ? 'rustEditor' : 'cEditor');
+  const nums = document.getElementById(id === 'rust' ? 'rustLineNums' : 'cLineNums');
+  const count = ta.value.split('\n').length;
+  nums.innerHTML = Array.from({length: count}, (_, i) =>
+    `<div>${i + 1}</div>`).join('');
+}
+
+function syncScroll(id) {
+  const ta = document.getElementById(id === 'rust' ? 'rustEditor' : 'cEditor');
+  const nums = document.getElementById(id === 'rust' ? 'rustLineNums' : 'cLineNums');
+  nums.scrollTop = ta.scrollTop;
+}
+
+// Init line numbers
+syncLineNums('rust');
+syncLineNums('c');
+
+// ── MODE ─────────────────────────────────────────────────────────────────────
+function setMode(mode) {
+  currentMode = mode;
+  ['regex','ast','full'].forEach(m => {
+    const el = document.getElementById('mode' + m.charAt(0).toUpperCase() + m.slice(1));
+    el.classList.toggle('active', m === mode);
+  });
+}
+
+// ── CLEAR ────────────────────────────────────────────────────────────────────
+function clearAll() {
+  document.getElementById('rustEditor').value = '';
+  document.getElementById('cEditor').value = '';
+  syncLineNums('rust');
+  syncLineNums('c');
+  resetResultsUI();
+}
+
+function resetResultsUI() {
+  allIssues = [];
+  document.getElementById('metricsStrip').style.display = 'none';
+  document.getElementById('filterRow').style.display = 'none';
+  document.getElementById('elapsed').textContent = '';
+  document.getElementById('resultsCountBadge').innerHTML = '';
+  const body = document.getElementById('resultsBody');
+  body.innerHTML = `
+    <div class="state-panel" id="emptyState">
+      <div class="state-icon">🔍</div>
+      <div class="state-msg">
+        <strong>Paste your transpiled Rust code</strong> and click Analyse.<br><br>
+        Detects unsafe blocks, raw pointers, LLM hallucination patterns, aliasing artifacts, and C vulnerability retention.<br><br>
+        Based on <strong>Wu et al. (2025)</strong>
+      </div>
+      <div class="sample-buttons">
+        <button class="sample-btn" onclick="loadSample('unsafe')">unsafe sample</button>
+        <button class="sample-btn" onclick="loadSample('llm')">llm hallucination</button>
+        <button class="sample-btn" onclick="loadSample('aliasing')">aliasing sample</button>
+      </div>
+    </div>`;
+}
+
+// ── SAMPLES ──────────────────────────────────────────────────────────────────
+const SAMPLES = {
+  unsafe: `use std::ptr;
+
+static mut GLOBAL_COUNTER: i32 = 0;
+
+pub unsafe fn increment_counter() {
+    GLOBAL_COUNTER += 1;
+}
+
+pub fn read_raw(ptr: *mut i32) -> i32 {
+    unsafe {
+        let val = *ptr;
+        let val2 = *ptr.add(1);
+        let val3 = *ptr.add(2);
+        std::mem::transmute::<i32, u32>(val) as i32
+    }
+}
+
+pub struct RawBuffer {
+    data: *mut u8,
+    other: *const u8,
+    size: usize,
+}
+
+pub fn process(buf: &RawBuffer) {
+    unsafe {
+        let slice = std::slice::from_raw_parts(buf.data, buf.size);
+        println!("{:?}", slice);
+    }
+}`,
+
+  llm: `// LLM-generated transpilation with hallucinated lifetimes
+use std::collections::HashMap;
+
+fn get_config<'static>() -> &'static str {
+    "hardcoded"
+}
+
+pub fn translate_string(input: *const i8) -> String {
+    unsafe {
+        let c_str = std::ffi::CStr::from_ptr(input);
+        c_str.to_string_lossy().into_owned()
+    }
+}
+
+pub fn lookup_or_die(map: &HashMap<String, String>, key: &str) -> String {
+    map.get(key).unwrap().clone()
+}
+
+pub fn index_array(data: &Vec<u8>, idx: usize) -> u8 {
+    unsafe { *data.get_unchecked(idx) }
+}
+
+pub fn cast_pointer(p: *mut u8) -> *mut u32 {
+    p as *mut u32
+}
+
+fn main() {
+    for i in 0..data.len() {
+        println!("{}", data[i]);
+    }
+}`,
+
+  aliasing: `// Aliasing artifacts from C pointer-heavy code
+use std::ptr;
+
+union DataUnion {
+    int_val: i32,
+    float_val: f32,
+    bytes: [u8; 4],
+}
+
+pub struct AliasedBuffer {
+    read_ptr: *const u8,
+    write_ptr: *mut u8,
+    meta_ptr: *mut u8,
+}
+
+pub fn aliased_read_write(buf: &mut AliasedBuffer, offset: usize) -> u8 {
+    unsafe {
+        ptr::write(buf.write_ptr.add(offset), 0xFF);
+        *buf.read_ptr.add(offset)
+    }
+}
+
+pub fn reinterpret(val: i32) -> f32 {
+    unsafe { std::mem::transmute(val) }
+}
+
+pub fn null_check_bypassed(p: *mut i32) {
+    unsafe {
+        std::ptr::write(p, 42);
+    }
+}
+
+pub fn double_free_risk(p: *mut i32) {
+    unsafe {
+        let _ = Box::from_raw(p);
+        let _ = Box::from_raw(p); // double free
+    }
+}`
+};
+
+function loadSample(name) {
+  document.getElementById('rustEditor').value = SAMPLES[name];
+  syncLineNums('rust');
+}
+
+// ── ANALYSIS ─────────────────────────────────────────────────────────────────
+async function runAnalysis() {
+  const rustCode = document.getElementById('rustEditor').value.trim();
+  if (!rustCode) {
+    showError('Please paste some Rust code first.');
+    return;
+  }
+
+  const btn = document.getElementById('analyzeBtn');
+  btn.disabled = true;
+  btn.innerHTML = `<div class="spinner" style="width:14px;height:14px;border-width:2px"></div> ANALYSING...`;
+
+  document.getElementById('metricsStrip').style.display = 'none';
+  document.getElementById('filterRow').style.display = 'none';
+  document.getElementById('resultsCountBadge').innerHTML = '';
+  document.getElementById('elapsed').textContent = '';
+
+  const body = document.getElementById('resultsBody');
+  body.innerHTML = `
+    <div class="state-panel">
+      <div class="spinner"></div>
+      <div class="state-msg">Running ${currentMode === 'full' ? 'full analysis' : currentMode + ' analysis'}...</div>
+    </div>`;
+
+  const payload = {
+    rust_code: rustCode,
+    c_code: document.getElementById('cEditor').value.trim() || null,
+    run_cargo_check: document.getElementById('cargoCheck').checked,
+  };
+
+  try {
+    const res = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || res.statusText);
+    }
+
+    const data = await res.json();
+    renderResults(data);
+
+  } catch (e) {
+    showError(e.message || 'Network error — is the server running?');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M6.5 1L12 6.5L6.5 12M1 6.5H12" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> ANALYSE`;
+  }
+}
+
+function showError(msg) {
+  document.getElementById('metricsStrip').style.display = 'none';
+  document.getElementById('filterRow').style.display = 'none';
+  document.getElementById('resultsBody').innerHTML = `
+    <div class="error-panel">⚠ ${escHtml(msg)}</div>`;
+}
+
+function renderResults(data) {
+  allIssues = data.issues || [];
+  currentFilter = 'all';
+
+  // Metrics
+  const m = data.metrics;
+  document.getElementById('mSSS').textContent = m.sss.toFixed(1) + '%';
+  document.getElementById('mSSS').style.color = m.sss >= 80 ? 'var(--green)' : m.sss >= 50 ? 'var(--yellow)' : 'var(--red)';
+  document.getElementById('mUEI').textContent = m.uei.toFixed(1) + '%';
+  document.getElementById('mUEI').style.color = m.uei > 30 ? 'var(--red)' : m.uei > 10 ? 'var(--yellow)' : 'var(--green)';
+  document.getElementById('mVRR').textContent = m.vrr;
+  document.getElementById('mVRR').style.color = m.vrr > 0 ? 'var(--red)' : 'var(--green)';
+  document.getElementById('mLines').textContent = m.total_lines;
+  document.getElementById('mLines').style.color = 'var(--text)';
+  document.getElementById('mFns').textContent = m.total_functions;
+  document.getElementById('mFns').style.color = 'var(--text)';
+
+  document.getElementById('metricsStrip').style.display = 'flex';
+
+  // Summary badge
+  const s = data.summary;
+  const total = s.total;
+  const badgeColor = s.errors > 0 ? '#e84040' : s.warnings > 0 ? '#f5c842' : '#3dd68c';
+  document.getElementById('resultsCountBadge').innerHTML =
+    `<span class="result-count-badge" style="background:${badgeColor}22;color:${badgeColor};border:1px solid ${badgeColor}44">${total} issue${total !== 1 ? 's' : ''}</span>`;
+
+  document.getElementById('elapsed').textContent = `${data.elapsed_ms}ms`;
+
+  // Filter pill counts
+  document.getElementById('pillAll').textContent = total;
+  document.getElementById('pillError').textContent = s.errors;
+  document.getElementById('pillWarning').textContent = s.warnings;
+  document.getElementById('pillInfo').textContent = s.info;
+  document.getElementById('pillHint').textContent = s.hints;
+
+  document.getElementById('filterRow').style.display = 'flex';
+
+  // Reset active tab
+  ['all','error','warning','info','hint'].forEach(t => {
+    document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1)).classList.toggle('active', t === 'all');
+  });
+
+  renderIssueList(allIssues);
+}
+
+function filterIssues(filter) {
+  currentFilter = filter;
+  ['all','error','warning','info','hint'].forEach(t => {
+    document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1)).classList.toggle('active', t === filter);
+  });
+
+  const filtered = filter === 'all' ? allIssues : allIssues.filter(i => i.severity.toLowerCase() === filter);
+  renderIssueList(filtered);
+}
+
+function renderIssueList(issues) {
+  const body = document.getElementById('resultsBody');
+
+  if (issues.length === 0) {
+    if (allIssues.length === 0) {
+      body.innerHTML = `
+        <div class="all-clear">
+          <div class="all-clear-icon">✓</div>
+          <div class="all-clear-msg">No issues detected. Well transpiled!</div>
+        </div>`;
+    } else {
+      body.innerHTML = `
+        <div class="state-panel">
+          <div class="state-msg">No ${currentFilter} issues.</div>
+        </div>`;
+    }
+    return;
+  }
+
+  const scroll = document.createElement('div');
+  scroll.className = 'issues-scroll';
+
+  issues.forEach((issue, idx) => {
+    const sev = (issue.severity || 'info').toLowerCase();
+    const sevClass = `sev-${sev}`;
+    const codeClass = `code-${sev}`;
+
+    const locText = issue.line > 0 ? `L${issue.line}:${issue.column}` : '';
+
+    let extra = '';
+    if (issue.snippet) {
+      extra += `<div class="issue-snippet">${escHtml(issue.snippet)}</div>`;
+    }
+    if (issue.suggestion) {
+      extra += `<div class="issue-suggestion">${escHtml(issue.suggestion)}</div>`;
+    }
+
+    const item = document.createElement('div');
+    item.className = 'issue-item';
+    item.style.animationDelay = `${idx * 18}ms`;
+    item.innerHTML = `
+      <div class="issue-sev ${sevClass}"></div>
+      <div class="issue-body">
+        <div class="issue-top">
+          <span class="issue-code ${codeClass}">${escHtml(issue.code)}</span>
+          <span style="font-size:10px;font-family:var(--font-mono);color:var(--text-dimmer)">${escHtml(issue.category || '')}</span>
+          ${locText ? `<span class="issue-loc">${locText}</span>` : ''}
+        </div>
+        <div class="issue-msg">${escHtml(issue.message)}</div>
+        ${extra}
+      </div>`;
+
+    // Click to highlight line in editor
+    if (issue.line > 0) {
+      item.title = `Go to line ${issue.line}`;
+      item.onclick = () => goToLine(issue.line);
+    }
+
+    scroll.appendChild(item);
+  });
+
+  body.innerHTML = '';
+  body.appendChild(scroll);
+}
+
+function goToLine(lineNo) {
+  const ta = document.getElementById('rustEditor');
+  const lines = ta.value.split('\n');
+  let pos = 0;
+  for (let i = 0; i < Math.min(lineNo - 1, lines.length); i++) {
+    pos += lines[i].length + 1;
+  }
+  ta.focus();
+  ta.setSelectionRange(pos, pos + (lines[lineNo - 1] || '').length);
+  // Scroll textarea to line
+  const lineHeight = 19.2;
+  ta.scrollTop = (lineNo - 5) * lineHeight;
+}
+
+// ── RESIZE HANDLE ─────────────────────────────────────────────────────────────
+(function() {
+  const handle = document.getElementById('resizeHandle');
+  const workspace = document.getElementById('workspace');
+  const editors = document.getElementById('editorsPanel');
+  let dragging = false;
+  let startX, startW;
+
+  handle.addEventListener('mousedown', e => {
+    dragging = true;
+    startX = e.clientX;
+    startW = editors.offsetWidth;
+    handle.classList.add('dragging');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  });
+
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const delta = e.clientX - startX;
+    const newW = Math.max(320, Math.min(startW + delta, workspace.offsetWidth - 300));
+    editors.style.width = newW + 'px';
+    editors.style.flex = 'none';
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    handle.classList.remove('dragging');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  });
+})();
+
+// ── KEYBOARD SHORTCUT ─────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    e.preventDefault();
+    runAnalysis();
+  }
+});
+
+// ── UTIL ──────────────────────────────────────────────────────────────────────
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>

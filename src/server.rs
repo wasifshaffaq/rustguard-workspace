@@ -1,0 +1,220 @@
+use axum::{
+    extract::Json,
+    http::{header, StatusCode},
+    response::{Html, IntoResponse, Response},
+    routing::{get, post},
+    Router,
+};
+use serde::{Deserialize, Serialize};
+use std::net::SocketAddr;
+use tower_http::cors::{Any, CorsLayer};
+
+use crate::{analyzer, ast_analyzer, cargo_check, report, rules};
+
+// ── Request / Response types ──────────────────────────────────────────────────
+
+#[derive(Deserialize)]
+pub struct AnalyzeRequest {
+    pub rust_code: String,
+    pub c_code: Option<String>,
+    pub run_cargo_check: Option<bool>,
+}
+
+#[derive(Serialize)]
+pub struct AnalyzeResponse {
+    pub issues: Vec<rules::Issue>,
+    pub metrics: Metrics,
+    pub summary: Summary,
+    pub elapsed_ms: u64,
+}
+
+#[derive(Serialize)]
+pub struct Metrics {
+    pub sss: f64,         // Semantic Safety Score (%)
+    pub uei: f64,         // Unsafe Exposure Index (%)
+    pub vrr: usize,       // Vulnerability Retention Rate (count)
+    pub total_lines: usize,
+    pub total_functions: usize,
+}
+
+#[derive(Serialize)]
+pub struct Summary {
+    pub errors: usize,
+    pub warnings: usize,
+    pub info: usize,
+    pub hints: usize,
+    pub total: usize,
+}
+
+// ── Server entry point ────────────────────────────────────────────────────────
+
+pub async fn run_server() -> Result<(), Box<dyn std::error::Error>> {
+    let cors = CorsLayer::new()
+        .allow_origin(Any)
+        .allow_methods(Any)
+        .allow_headers(Any);
+
+    let app = Router::new()
+        .route("/", get(serve_index))
+        .route("/api/analyze", post(analyze_handler))
+        .route("/health", get(health))
+        .layer(cors);
+
+    let port: u16 = std::env::var("PORT")
+        .unwrap_or_else(|_| "8080".to_string())
+        .parse()
+        .unwrap_or(8080);
+
+    let addr = SocketAddr::from(([0, 0, 0, 0], port));
+    println!("🦀 cpp2rust-debugger web server running on http://{}", addr);
+
+    let listener = tokio::net::TcpListener::bind(addr).await?;
+    axum::serve(listener, app).await?;
+    Ok(())
+}
+
+// ── Route handlers ────────────────────────────────────────────────────────────
+
+async fn health() -> &'static str {
+    "ok"
+}
+
+async fn serve_index() -> impl IntoResponse {
+    // Embed the HTML at compile time so there's only one binary to deploy
+    let html = include_str!("../static/index.html");
+    Html(html)
+}
+
+async fn analyze_handler(
+    Json(req): Json<AnalyzeRequest>,
+) -> Result<Json<AnalyzeResponse>, AppError> {
+    let start = std::time::Instant::now();
+
+    // Guard: limit input size to 500 KB to prevent abuse
+    if req.rust_code.len() > 500_000 {
+        return Err(AppError("Rust code exceeds 500 KB limit".to_string()));
+    }
+    if req.c_code.as_ref().map(|s| s.len()).unwrap_or(0) > 500_000 {
+        return Err(AppError("C code exceeds 500 KB limit".to_string()));
+    }
+
+    let rust_code = req.rust_code.clone();
+    let c_code = req.c_code.clone();
+    let run_cargo = req.run_cargo_check.unwrap_or(false); // off by default in web (slow)
+
+    // Run analysis in blocking thread pool (syn + regex are CPU-bound)
+    let result = tokio::task::spawn_blocking(move || {
+        run_analysis(&rust_code, c_code.as_deref(), run_cargo)
+    })
+    .await
+    .map_err(|e| AppError(e.to_string()))??;
+
+    let elapsed_ms = start.elapsed().as_millis() as u64;
+
+    Ok(Json(AnalyzeResponse {
+        issues: result.0,
+        metrics: result.1,
+        summary: result.2,
+        elapsed_ms,
+    }))
+}
+
+// ── Core analysis logic (sync, runs in spawn_blocking) ───────────────────────
+
+fn run_analysis(
+    rust_code: &str,
+    c_code: Option<&str>,
+    run_cargo: bool,
+) -> Result<(Vec<rules::Issue>, Metrics, Summary), AppError> {
+    let mut all_issues: Vec<rules::Issue> = Vec::new();
+
+    // Layer 1: regex + structural
+    let mut a = analyzer::Analyzer::new(rust_code.to_string(), c_code.map(|s| s.to_string()));
+    all_issues.extend(a.run());
+
+    // Layer 2: AST semantic (syn)
+    match ast_analyzer::analyze(rust_code) {
+        Ok(issues) => all_issues.extend(issues),
+        Err(e) => {
+            all_issues.push(rules::Issue {
+                line: 0, column: 0,
+                severity: rules::Severity::Error,
+                category: rules::Category::Syntax,
+                code: "AST000".to_string(),
+                message: format!("AST parse failed: {}", e),
+                suggestion: Some("Fix syntax errors before deeper analysis.".to_string()),
+                snippet: String::new(),
+            });
+        }
+    }
+
+    // Layer 3: cargo check (optional — slow, requires cargo in PATH)
+    if run_cargo {
+        match cargo_check::run(rust_code, None) {
+            Ok(issues) => all_issues.extend(issues),
+            Err(_) => {} // silently skip if cargo not available
+        }
+    }
+
+    // Compute metrics
+    let total_lines = rust_code.lines().count();
+    let total_functions = rust_code.matches("fn ").count();
+
+    let semantic_issues = all_issues.iter()
+        .filter(|i| matches!(i.category, rules::Category::Semantic | rules::Category::Memory))
+        .count();
+
+    let sss = if total_functions > 0 {
+        let unsafe_fns = semantic_issues.min(total_functions);
+        ((total_functions - unsafe_fns) as f64 / total_functions as f64) * 100.0
+    } else {
+        100.0
+    };
+
+    let unsafe_issues = all_issues.iter()
+        .filter(|i| matches!(i.code.as_str(), "RAW001" | "RAW002" | "AST_FN002" | "AST_UNS001" | "AST_UNS002" | "ALIAS001" | "ALIAS002"))
+        .count();
+
+    let uei = if !all_issues.is_empty() {
+        (unsafe_issues as f64 / all_issues.len() as f64) * 100.0
+    } else {
+        0.0
+    };
+
+    let vrr = all_issues.iter()
+        .filter(|i| i.code.starts_with("CVE_") || i.code.starts_with("CVE0"))
+        .count();
+
+    let metrics = Metrics { sss, uei, vrr, total_lines, total_functions };
+
+    let summary = Summary {
+        errors: all_issues.iter().filter(|i| matches!(i.severity, rules::Severity::Error)).count(),
+        warnings: all_issues.iter().filter(|i| matches!(i.severity, rules::Severity::Warning)).count(),
+        info: all_issues.iter().filter(|i| matches!(i.severity, rules::Severity::Info)).count(),
+        hints: all_issues.iter().filter(|i| matches!(i.severity, rules::Severity::Hint)).count(),
+        total: all_issues.len(),
+    };
+
+    Ok((all_issues, metrics, summary))
+}
+
+// ── Error type ────────────────────────────────────────────────────────────────
+
+pub struct AppError(String);
+
+impl IntoResponse for AppError {
+    fn into_response(self) -> Response {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            [(header::CONTENT_TYPE, "application/json")],
+            format!(r#"{{"error":"{}"}}"#, self.0),
+        )
+            .into_response()
+    }
+}
+
+impl From<Box<dyn std::error::Error>> for AppError {
+    fn from(e: Box<dyn std::error::Error>) -> Self {
+        AppError(e.to_string())
+    }
+}
