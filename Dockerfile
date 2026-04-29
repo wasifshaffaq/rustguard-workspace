@@ -1,5 +1,5 @@
 # ── Stage 1: Build ────────────────────────────────────────────────────────────
-FROM rust:slim AS builder
+FROM rust:bookworm as builder
 
 # Install build deps
 RUN apt-get update && apt-get install -y \
