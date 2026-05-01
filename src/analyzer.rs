@@ -1,8 +1,19 @@
+/// analyzer.rs — orchestrates all analysis layers
+/// 
+/// Layer 1: Regex pattern matching (rules.rs)
+/// Layer 2: AST structural analysis (ast_analyzer.rs) — unchanged
+/// Layer 3: Data-flow taint analysis (dataflow.rs) — NEW
+/// Layer 4: Ownership graph analysis (ownership.rs) — NEW
+/// Layer 5: Alias / union analysis (alias.rs) — NEW
+/// Layer 6: Cross-function semantic analysis (cross_fn.rs) — NEW
+/// Layer 7: C source CVE retention analysis (cve_retention.rs) — NEW (replaces compare_with_cpp)
+
 use crate::rules::{get_rules, Issue, Severity, Category};
+use crate::cve_retention;
 
 pub struct Analyzer {
-    rust_code: String,
-    cpp_code: Option<String>,
+    pub rust_code: String,
+    pub cpp_code: Option<String>,
 }
 
 impl Analyzer {
@@ -15,6 +26,7 @@ impl Analyzer {
         let rules = get_rules();
         let lines: Vec<&str> = self.rust_code.lines().collect();
 
+        // ── Layer 1: regex pattern matching ──────────────────────────────
         for (line_no, line) in lines.iter().enumerate() {
             for rule in &rules {
                 if let Some(m) = rule.pattern.find(line) {
@@ -32,17 +44,22 @@ impl Analyzer {
             }
         }
 
+        // ── Structural checks ─────────────────────────────────────────────
         issues.extend(self.check_balanced_braces());
         issues.extend(self.check_unsafe_density());
-        if self.cpp_code.is_some() {
-            issues.extend(self.compare_with_cpp());
+
+        // ── Layer 7: CVE retention (replaces compare_with_cpp) ────────────
+        if let Some(c_source) = &self.cpp_code {
+            let result = cve_retention::analyze(c_source, &self.rust_code);
+            issues.extend(result.issues);
         }
+
         issues
     }
 
     fn check_balanced_braces(&self) -> Vec<Issue> {
         let mut issues = Vec::new();
-        let opens = self.rust_code.matches('{').count();
+        let opens  = self.rust_code.matches('{').count();
         let closes = self.rust_code.matches('}').count();
         if opens != closes {
             issues.push(Issue {
@@ -61,7 +78,7 @@ impl Analyzer {
     fn check_unsafe_density(&self) -> Vec<Issue> {
         let mut issues = Vec::new();
         let unsafe_count = self.rust_code.matches("unsafe").count();
-        let total_lines = self.rust_code.lines().count().max(1);
+        let total_lines  = self.rust_code.lines().count().max(1);
         let density = (unsafe_count as f64) / (total_lines as f64);
         if density > 0.05 {
             issues.push(Issue {
@@ -69,29 +86,11 @@ impl Analyzer {
                 severity: Severity::Warning,
                 category: Category::Memory,
                 code: "DENSE001".to_string(),
-                message: format!("High unsafe density: {} / {} lines ({:.1}%)",
-                    unsafe_count, total_lines, density * 100.0),
-                suggestion: Some("Refactor to safe abstractions.".to_string()),
-                snippet: String::new(),
-            });
-        }
-        issues
-    }
-
-    fn compare_with_cpp(&self) -> Vec<Issue> {
-        let mut issues = Vec::new();
-        let cpp = self.cpp_code.as_ref().unwrap();
-        let cpp_fns = regex::Regex::new(r"\b\w+\s+\w+\s*\([^)]*\)\s*\{").unwrap()
-            .find_iter(cpp).count();
-        let rust_fns = self.rust_code.matches("fn ").count();
-        if cpp_fns > 0 && rust_fns < cpp_fns / 2 {
-            issues.push(Issue {
-                line: 0, column: 0,
-                severity: Severity::Warning,
-                category: Category::Semantic,
-                code: "CMP001".to_string(),
-                message: format!("Function count mismatch: C++ ~{}, Rust {}", cpp_fns, rust_fns),
-                suggestion: Some("Some functions may not have been transpiled.".to_string()),
+                message: format!(
+                    "High unsafe density: {} occurrences / {} lines ({:.1}%)",
+                    unsafe_count, total_lines, density * 100.0
+                ),
+                suggestion: Some("Refactor to safe abstractions. High unsafe density indicates heavy C pointer carry-over.".to_string()),
                 snippet: String::new(),
             });
         }
