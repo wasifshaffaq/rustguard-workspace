@@ -1071,6 +1071,7 @@ async function runAnalysis() {
     rust_code: rustCode,
     c_code: document.getElementById('cEditor').value.trim() || null,
     run_cargo_check: document.getElementById('cargoCheck').checked,
+    mode: currentMode,   // 'regex', 'ast', or 'full'
   };
 
   try {

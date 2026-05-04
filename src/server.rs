@@ -18,6 +18,7 @@ pub struct AnalyzeRequest {
     pub rust_code: String,
     pub c_code: Option<String>,
     pub run_cargo_check: Option<bool>,
+    pub mode: Option<String>,   // "regex", "ast", or "full"
 }
 
 #[derive(Serialize)]
@@ -99,9 +100,11 @@ async fn analyze_handler(
     let rust_code = req.rust_code.clone();
     let c_code = req.c_code.clone();
     let run_cargo = req.run_cargo_check.unwrap_or(false);
+    // Default to "full" so existing behaviour is preserved when mode not sent
+    let mode = req.mode.clone().unwrap_or_else(|| "full".to_string());
 
     let result = tokio::task::spawn_blocking(move || {
-        run_analysis(&rust_code, c_code.as_deref(), run_cargo)
+        run_analysis(&rust_code, c_code.as_deref(), run_cargo, &mode)
     })
     .await
     .map_err(|e| AppError(e.to_string()))??;
@@ -116,61 +119,70 @@ async fn analyze_handler(
     }))
 }
 
-// ── Core analysis — all 6 layers ─────────────────────────────────────────────
+// ── Core analysis — mode-controlled layers ────────────────────────────────────
+//
+//  REGEX mode  → Layer 1 only  (fast pattern matching, ~2ms)
+//  AST mode    → Layers 1-6    (full semantic analysis, ~50ms)
+//  FULL mode   → Layers 1-6 + optional cargo check
 
 fn run_analysis(
     rust_code: &str,
     c_code: Option<&str>,
     run_cargo: bool,
+    mode: &str,
 ) -> Result<(Vec<rules::Issue>, Metrics, Summary), AppError> {
     let mut all_issues: Vec<rules::Issue> = Vec::new();
 
-    // ── Layer 1: regex + structural + CVE retention ───────────────────────
+    // ── Layer 1: regex + structural + CVE retention (always runs) ─────────
     let mut a = analyzer::Analyzer::new(rust_code.to_string(), c_code.map(|s| s.to_string()));
     all_issues.extend(a.run());
 
-    // ── Layer 2: AST structural (syn) ─────────────────────────────────────
-    match ast_analyzer::analyze(rust_code) {
-        Ok(issues) => all_issues.extend(issues),
-        Err(e) => {
-            all_issues.push(rules::Issue {
-                line: 0, column: 0,
-                severity: rules::Severity::Error,
-                category: rules::Category::Syntax,
-                code: "AST000".to_string(),
-                message: format!("AST parse failed: {}", e),
-                suggestion: Some("Fix syntax errors before deeper analysis.".to_string()),
-                snippet: String::new(),
-            });
+    // ── Layers 2-6: only in AST or FULL mode ─────────────────────────────
+    if mode == "ast" || mode == "full" {
+
+        // Layer 2: AST structural (syn)
+        match ast_analyzer::analyze(rust_code) {
+            Ok(issues) => all_issues.extend(issues),
+            Err(e) => {
+                all_issues.push(rules::Issue {
+                    line: 0, column: 0,
+                    severity: rules::Severity::Error,
+                    category: rules::Category::Syntax,
+                    code: "AST000".to_string(),
+                    message: format!("AST parse failed: {}", e),
+                    suggestion: Some("Fix syntax errors before deeper analysis.".to_string()),
+                    snippet: String::new(),
+                });
+            }
+        }
+
+        // Layer 3: Data-flow taint analysis (LLM hallucination detection)
+        match dataflow::analyze(rust_code) {
+            Ok(issues) => all_issues.extend(issues),
+            Err(_) => {}
+        }
+
+        // Layer 4: Ownership graph
+        match ownership::analyze(rust_code) {
+            Ok(issues) => all_issues.extend(issues),
+            Err(_) => {}
+        }
+
+        // Layer 5: Alias / union detection
+        match alias::analyze(rust_code) {
+            Ok(issues) => all_issues.extend(issues),
+            Err(_) => {}
+        }
+
+        // Layer 6: Cross-function semantic analysis
+        match cross_fn::analyze(rust_code) {
+            Ok(issues) => all_issues.extend(issues),
+            Err(_) => {}
         }
     }
 
-    // ── Layer 3: Data-flow taint analysis ─────────────────────────────────
-    match dataflow::analyze(rust_code) {
-        Ok(issues) => all_issues.extend(issues),
-        Err(_) => {}
-    }
-
-    // ── Layer 4: Ownership graph ──────────────────────────────────────────
-    match ownership::analyze(rust_code) {
-        Ok(issues) => all_issues.extend(issues),
-        Err(_) => {}
-    }
-
-    // ── Layer 5: Alias / union detection ─────────────────────────────────
-    match alias::analyze(rust_code) {
-        Ok(issues) => all_issues.extend(issues),
-        Err(_) => {}
-    }
-
-    // ── Layer 6: Cross-function semantic analysis ─────────────────────────
-    match cross_fn::analyze(rust_code) {
-        Ok(issues) => all_issues.extend(issues),
-        Err(_) => {}
-    }
-
-    // ── Layer 7: cargo check (optional, slow) ─────────────────────────────
-    if run_cargo {
+    // ── Layer 7: cargo check (FULL mode only, and only if user enabled it) ─
+    if mode == "full" && run_cargo {
         match cargo_check::run(rust_code, None) {
             Ok(issues) => all_issues.extend(issues),
             Err(_) => {}
