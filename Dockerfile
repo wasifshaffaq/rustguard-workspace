@@ -37,8 +37,8 @@ WORKDIR /app
 COPY --from=builder /app/target/release/cpp2rust-debugger .
 COPY --from=builder /app/static ./static
 
-EXPOSE 8080
+EXPOSE 7860
 
-ENV PORT=8080
+ENV PORT=7860
 
 CMD ["./cpp2rust-debugger"]
