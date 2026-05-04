@@ -3,11 +3,12 @@ mod rules;
 mod report;
 mod ast_analyzer;
 mod cargo_check;
-mod dataflow;      // NEW: data-flow taint analysis
-mod ownership;     // NEW: ownership graph
-mod alias;         // NEW: aliasing and union detection
-mod cross_fn;      // NEW: cross-function semantic analysis
-mod cve_retention; // NEW: C vulnerability retention
+mod dataflow;
+mod ownership;
+mod alias;
+mod cross_fn;
+mod cve_retention;
+mod server;
 
 use clap::Parser;
 use colored::*;
@@ -56,6 +57,16 @@ struct Args {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let raw_args: Vec<String> = std::env::args().collect();
+
+    // If no arguments given, or --server flag present → run as web server (Railway/hosting mode)
+    // When Railway runs ./cpp2rust-debugger with no args, this triggers the web server
+    if raw_args.len() == 1 || raw_args.iter().any(|a| a == "--server") {
+        let rt = tokio::runtime::Runtime::new()?;
+        return rt.block_on(server::run_server());
+    }
+
+    // Otherwise → run as CLI tool (local usage with --rust flag)
     let args = Args::parse();
 
     println!("{}", "═══════════════════════════════════════════════════".cyan());
@@ -83,7 +94,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut all_issues = Vec::new();
 
-    // ── Layer 1+2+7: Regex + structural + CVE retention ───────────────────
+    // ── Layer 1: Regex + structural + CVE retention ───────────────────────
     if !args.no_regex {
         println!("{}", "→ [Layer 1] Pattern + structural + CVE retention analysis...".dimmed());
         let mut a = analyzer::Analyzer::new(rust_code.clone(), cpp_code.clone());
@@ -184,7 +195,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // ── Output ────────────────────────────────────────────────────────────
     let rep = report::Report::new(all_issues, args.verbose);
-    let mut output_str = match args.format.as_str() {
+    let output_str = match args.format.as_str() {
         "json" => rep.to_json()?,
         _ => {
             let mut s = rep.to_text();
@@ -211,8 +222,8 @@ fn compute_metrics(
     let total_lines = rust_code.lines().count();
     let total_fns   = rust_code.matches("fn ").count();
 
-    let errors   = issues.iter().filter(|i| matches!(i.severity, Severity::Error)).count();
-    let warnings = issues.iter().filter(|i| matches!(i.severity, Severity::Warning)).count();
+    let _errors   = issues.iter().filter(|i| matches!(i.severity, Severity::Error)).count();
+    let _warnings = issues.iter().filter(|i| matches!(i.severity, Severity::Warning)).count();
 
     let semantic_issues = issues.iter()
         .filter(|i| matches!(i.category,
@@ -256,7 +267,7 @@ fn compute_metrics(
         .filter(|i| i.code.starts_with("ALIAS_"))
         .count();
 
-    // FNR-ST estimate: issues found only by new layers (not detectable by clippy/cargo)
+    // FNR-ST: issues only our deep layers find (Clippy/cargo check would miss these)
     let deep_only = issues.iter()
         .filter(|i| {
             i.code.starts_with("LLM_") || i.code.starts_with("CROSS_") ||
@@ -266,7 +277,8 @@ fn compute_metrics(
         .count();
 
     let mut out = String::new();
-    out.push_str(&format!("\n{}\n", "── Objective 3 Quality Metrics ─────────────────────────────".bold().cyan()));
+    out.push_str(&format!("\n{}\n",
+        "── Objective 3 Quality Metrics ─────────────────────────────".bold().cyan()));
     out.push_str(&format!(
         "  {:<40} {}\n",
         "SSS (Semantic Safety Score):".bold(),
