@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
 use tower_http::cors::{Any, CorsLayer};
 
-use crate::{analyzer, ast_analyzer, cargo_check, report, rules};
+use crate::{analyzer, ast_analyzer, cargo_check, rules, dataflow, ownership, alias, cross_fn};
 
 // ── Request / Response types ──────────────────────────────────────────────────
 
@@ -30,9 +30,9 @@ pub struct AnalyzeResponse {
 
 #[derive(Serialize)]
 pub struct Metrics {
-    pub sss: f64,         // Semantic Safety Score (%)
-    pub uei: f64,         // Unsafe Exposure Index (%)
-    pub vrr: usize,       // Vulnerability Retention Rate (count)
+    pub sss: f64,
+    pub uei: f64,
+    pub vrr: usize,
     pub total_lines: usize,
     pub total_functions: usize,
 }
@@ -66,7 +66,7 @@ pub async fn run_server() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap_or(8080);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
-    println!("🦀 cpp2rust-debugger web server running on http://{}", addr);
+    println!("🦀 RustGuard v0.3 web server running on http://{}", addr);
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
     axum::serve(listener, app).await?;
@@ -80,7 +80,6 @@ async fn health() -> &'static str {
 }
 
 async fn serve_index() -> impl IntoResponse {
-    // Embed the HTML at compile time so there's only one binary to deploy
     let html = include_str!("../static/index.html");
     Html(html)
 }
@@ -90,7 +89,6 @@ async fn analyze_handler(
 ) -> Result<Json<AnalyzeResponse>, AppError> {
     let start = std::time::Instant::now();
 
-    // Guard: limit input size to 500 KB to prevent abuse
     if req.rust_code.len() > 500_000 {
         return Err(AppError("Rust code exceeds 500 KB limit".to_string()));
     }
@@ -100,9 +98,8 @@ async fn analyze_handler(
 
     let rust_code = req.rust_code.clone();
     let c_code = req.c_code.clone();
-    let run_cargo = req.run_cargo_check.unwrap_or(false); // off by default in web (slow)
+    let run_cargo = req.run_cargo_check.unwrap_or(false);
 
-    // Run analysis in blocking thread pool (syn + regex are CPU-bound)
     let result = tokio::task::spawn_blocking(move || {
         run_analysis(&rust_code, c_code.as_deref(), run_cargo)
     })
@@ -119,7 +116,7 @@ async fn analyze_handler(
     }))
 }
 
-// ── Core analysis logic (sync, runs in spawn_blocking) ───────────────────────
+// ── Core analysis — all 6 layers ─────────────────────────────────────────────
 
 fn run_analysis(
     rust_code: &str,
@@ -128,11 +125,11 @@ fn run_analysis(
 ) -> Result<(Vec<rules::Issue>, Metrics, Summary), AppError> {
     let mut all_issues: Vec<rules::Issue> = Vec::new();
 
-    // Layer 1: regex + structural
+    // ── Layer 1: regex + structural + CVE retention ───────────────────────
     let mut a = analyzer::Analyzer::new(rust_code.to_string(), c_code.map(|s| s.to_string()));
     all_issues.extend(a.run());
 
-    // Layer 2: AST semantic (syn)
+    // ── Layer 2: AST structural (syn) ─────────────────────────────────────
     match ast_analyzer::analyze(rust_code) {
         Ok(issues) => all_issues.extend(issues),
         Err(e) => {
@@ -148,22 +145,53 @@ fn run_analysis(
         }
     }
 
-    // Layer 3: cargo check (optional — slow, requires cargo in PATH)
+    // ── Layer 3: Data-flow taint analysis ─────────────────────────────────
+    match dataflow::analyze(rust_code) {
+        Ok(issues) => all_issues.extend(issues),
+        Err(_) => {}
+    }
+
+    // ── Layer 4: Ownership graph ──────────────────────────────────────────
+    match ownership::analyze(rust_code) {
+        Ok(issues) => all_issues.extend(issues),
+        Err(_) => {}
+    }
+
+    // ── Layer 5: Alias / union detection ─────────────────────────────────
+    match alias::analyze(rust_code) {
+        Ok(issues) => all_issues.extend(issues),
+        Err(_) => {}
+    }
+
+    // ── Layer 6: Cross-function semantic analysis ─────────────────────────
+    match cross_fn::analyze(rust_code) {
+        Ok(issues) => all_issues.extend(issues),
+        Err(_) => {}
+    }
+
+    // ── Layer 7: cargo check (optional, slow) ─────────────────────────────
     if run_cargo {
         match cargo_check::run(rust_code, None) {
             Ok(issues) => all_issues.extend(issues),
-            Err(_) => {} // silently skip if cargo not available
+            Err(_) => {}
         }
     }
 
-    // Compute metrics
-    let total_lines = rust_code.lines().count();
+    // ── Compute Objective 3 metrics ───────────────────────────────────────
+    let total_lines     = rust_code.lines().count();
     let total_functions = rust_code.matches("fn ").count();
 
     let semantic_issues = all_issues.iter()
-        .filter(|i| matches!(i.category, rules::Category::Semantic | rules::Category::Memory))
+        .filter(|i| matches!(i.category,
+            rules::Category::Semantic
+            | rules::Category::Memory
+            | rules::Category::Aliasing
+            | rules::Category::Ownership
+            | rules::Category::LlmHallucination
+            | rules::Category::CveRetention))
         .count();
 
+    // SSS: Semantic Safety Score
     let sss = if total_functions > 0 {
         let unsafe_fns = semantic_issues.min(total_functions);
         ((total_functions - unsafe_fns) as f64 / total_functions as f64) * 100.0
@@ -171,28 +199,31 @@ fn run_analysis(
         100.0
     };
 
+    // UEI: Unsafe Exposure Index
     let unsafe_issues = all_issues.iter()
-        .filter(|i| matches!(i.code.as_str(), "RAW001" | "RAW002" | "AST_FN002" | "AST_UNS001" | "AST_UNS002" | "ALIAS001" | "ALIAS002"))
+        .filter(|i| matches!(i.code.as_str(),
+            "RAW001" | "RAW002" | "AST_FN002" | "AST_UNS001" | "AST_UNS002"
+            | "ALIAS001" | "ALIAS002" | "LLM_PAT001"))
         .count();
-
     let uei = if !all_issues.is_empty() {
         (unsafe_issues as f64 / all_issues.len() as f64) * 100.0
     } else {
         0.0
     };
 
+    // VRR: Vulnerability Retention Rate (Wu et al. 2025)
     let vrr = all_issues.iter()
-        .filter(|i| i.code.starts_with("CVE_") || i.code.starts_with("CVE0"))
+        .filter(|i| i.code.starts_with("VRR_") && !i.code.ends_with("_SAFE"))
         .count();
 
     let metrics = Metrics { sss, uei, vrr, total_lines, total_functions };
 
     let summary = Summary {
-        errors: all_issues.iter().filter(|i| matches!(i.severity, rules::Severity::Error)).count(),
+        errors:   all_issues.iter().filter(|i| matches!(i.severity, rules::Severity::Error)).count(),
         warnings: all_issues.iter().filter(|i| matches!(i.severity, rules::Severity::Warning)).count(),
-        info: all_issues.iter().filter(|i| matches!(i.severity, rules::Severity::Info)).count(),
-        hints: all_issues.iter().filter(|i| matches!(i.severity, rules::Severity::Hint)).count(),
-        total: all_issues.len(),
+        info:     all_issues.iter().filter(|i| matches!(i.severity, rules::Severity::Info)).count(),
+        hints:    all_issues.iter().filter(|i| matches!(i.severity, rules::Severity::Hint)).count(),
+        total:    all_issues.len(),
     };
 
     Ok((all_issues, metrics, summary))
