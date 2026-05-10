@@ -1,0 +1,17 @@
+name: Update Deployment Status
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  update-deployment:
+    runs-on: ubuntu-latest
+    environment:
+      name: Hugging Face
+      url: https://wasifshaffaq-rustguard.hf.space/
+    steps:
+      - name: Log Deployment
+        run: echo "Successfully linked Hugging Face space to GitHub Deployments!"
