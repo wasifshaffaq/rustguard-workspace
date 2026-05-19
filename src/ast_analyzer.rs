@@ -68,6 +68,14 @@ impl<'ast> Visit<'ast> for AstVisitor {
 
     fn visit_expr_unsafe(&mut self, node: &'ast ExprUnsafe) {
         let stmt_count = node.block.stmts.len();
+        self.add(
+            node.unsafe_token.span,
+            Severity::Warning,
+            Category::Memory,
+            "AST_UNS002",
+            "Unsafe block found — verify if it can be made safe.".to_string(),
+            Some("Encapsulate in safe abstractions or use Rust idioms.".to_string()),
+        );
         if stmt_count > 5 {
             self.add(
                 node.unsafe_token.span,

@@ -3,245 +3,336 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RustGuard — C→Rust Transpilation Analyser</title>
+<title>RustGuard Workspace — Premium C→Rust Transpilation Analyser</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 :root {
-  --bg0: #0c0e12;
-  --bg1: #111318;
-  --bg2: #181b22;
-  --bg3: #1f2330;
-  --border: #2a2f3d;
-  --border-hi: #3d4459;
-  --text: #d4d8e8;
-  --text-dim: #6b7394;
-  --text-dimmer: #3d4259;
-  --rust: #e8633a;
-  --rust-dim: #7a2e14;
-  --rust-glow: rgba(232,99,58,0.15);
-  --green: #3dd68c;
-  --green-dim: #1a5c3e;
-  --yellow: #f5c842;
-  --yellow-dim: #5c4a14;
-  --red: #e84040;
-  --red-dim: #5c1414;
-  --blue: #4a9eff;
-  --blue-dim: #1a3a5c;
-  --purple: #9b7dff;
+  /* Dark Theme Default (shadcn zinc/blue) */
+  --bg-darkest: #09090b;
+  --bg-dark: #09090b;
+  --bg-glass: rgba(9, 9, 11, 0.75);
+  --bg-glass-hi: rgba(24, 24, 27, 0.95);
+  --bg-panel: rgba(9, 9, 11, 0.4);
+  --bg-pane-header: rgba(24, 24, 27, 0.5);
+  --bg-toolbar: rgba(9, 9, 11, 0.4);
+  --bg-toggle-group: rgba(255, 255, 255, 0.02);
+  --bg-button-sec: rgba(255, 255, 255, 0.03);
+  --bg-button-sec-hover: rgba(255, 255, 255, 0.06);
+  --bg-badge: rgba(255, 255, 255, 0.03);
+  --bg-tab-hover: rgba(255, 255, 255, 0.02);
+  --bg-metrics-grid: rgba(9, 9, 11, 0.5);
+  --bg-filter-bar: rgba(9, 9, 11, 0.2);
+  --bg-card: rgba(24, 24, 27, 0.65);
+  --bg-card-hover: rgba(39, 39, 42, 0.85);
+  --bg-canvas-graph: rgba(9, 9, 11, 0.5);
+  --bg-fallback-editor: #09090b;
+  --border: #27272a;
+  --border-hi: #3f3f46;
+  --text: #fafafa;
+  --text-dim: #a1a1aa;
+  --text-dimmer: #71717a;
+  --accent-rust: #3b82f6;
+  --accent-rust-hover: #2563eb;
+  --accent-rust-glow: rgba(59, 130, 246, 0.15);
+  --accent-cyan: #06b6d4;
+  --accent-violet: #8b5cf6;
+  --accent-rose: #ef4444;
+  --green: #10b981;
+  --yellow: #f59e0b;
+  --red: #ef4444;
+  --purple: #8b5cf6;
   --font-mono: 'JetBrains Mono', monospace;
-  --font-ui: 'Syne', sans-serif;
-  --radius: 6px;
-  --radius-lg: 10px;
+  --font-ui: 'Inter', sans-serif;
+  --radius-sm: 4px;
+  --radius: 8px;
+  --radius-lg: 12px;
+  --shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  --shadow-neon: 0 0 15px rgba(59, 130, 246, 0.1);
+  --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Light Theme Variables */
+[data-theme="light"] {
+  --bg-darkest: #ffffff;
+  --bg-dark: #fafafa;
+  --bg-glass: rgba(255, 255, 255, 0.75);
+  --bg-glass-hi: rgba(244, 244, 245, 0.95);
+  --bg-panel: rgba(255, 255, 255, 0.5);
+  --bg-pane-header: rgba(244, 244, 245, 0.8);
+  --bg-toolbar: rgba(255, 255, 255, 0.6);
+  --bg-toggle-group: rgba(0, 0, 0, 0.04);
+  --bg-button-sec: rgba(0, 0, 0, 0.02);
+  --bg-button-sec-hover: rgba(0, 0, 0, 0.04);
+  --bg-badge: rgba(0, 0, 0, 0.02);
+  --bg-tab-hover: rgba(0, 0, 0, 0.02);
+  --bg-metrics-grid: rgba(0, 0, 0, 0.01);
+  --bg-filter-bar: rgba(0, 0, 0, 0.01);
+  --bg-card: #ffffff;
+  --bg-card-hover: #fafafa;
+  --bg-canvas-graph: rgba(250, 250, 250, 0.8);
+  --bg-fallback-editor: #ffffff;
+  --border: #e4e4e7;
+  --border-hi: #d4d4d8;
+  --text: #09090b;
+  --text-dim: #71717a;
+  --text-dimmer: #a1a1aa;
+  --accent-rust: #2563eb;
+  --accent-rust-hover: #1d4ed8;
+  --accent-rust-glow: rgba(37, 99, 235, 0.1);
+  --accent-cyan: #0891b2;
+  --accent-violet: #7c3aed;
+  --accent-rose: #dc2626;
+  --shadow: 0 4px 12px rgba(9, 9, 11, 0.05);
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body {
   height: 100%;
-  background: var(--bg0);
+  background: var(--bg-darkest);
   color: var(--text);
   font-family: var(--font-ui);
   overflow: hidden;
+  transition: var(--transition);
 }
 
-/* ── TOP BAR ── */
+/* Background particle network canvas */
+#bgCanvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.45;
+}
+
+.app-container {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: transparent;
+}
+
+/* ── HEADER ── */
 header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 20px;
-  height: 52px;
+  padding: 0 24px;
+  height: 60px;
   border-bottom: 1px solid var(--border);
-  background: var(--bg1);
+  background: var(--bg-glass);
+  backdrop-filter: blur(12px);
   flex-shrink: 0;
   position: relative;
-  z-index: 10;
+  transition: var(--transition);
 }
 
 .logo {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
-.logo-icon {
-  width: 28px;
-  height: 28px;
-  background: var(--rust);
-  border-radius: 6px;
+.logo-icon-container {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, var(--accent-rust), var(--accent-violet));
+  border-radius: var(--radius);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
-  flex-shrink: 0;
+  font-size: 16px;
+  font-weight: 800;
+  box-shadow: 0 0 15px var(--accent-rust-glow);
 }
 
-.logo-text {
-  font-size: 15px;
+.logo-text-block {
+  display: flex;
+  flex-direction: column;
+}
+
+.logo-title {
+  font-size: 18px;
   font-weight: 700;
-  letter-spacing: 0.02em;
-  color: #fff;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  transition: var(--transition);
 }
 
-.logo-sub {
-  font-size: 11px;
-  color: var(--text-dim);
+.logo-subtitle {
+  font-size: 10px;
+  color: var(--accent-rust);
   font-family: var(--font-mono);
-  font-weight: 300;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
-.header-right {
+.header-meta {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-.badge {
+.meta-badge {
   font-family: var(--font-mono);
   font-size: 10px;
-  padding: 3px 8px;
-  border-radius: 3px;
-  letter-spacing: 0.06em;
-  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  background: var(--bg-badge);
+  border: 1px solid var(--border);
+  letter-spacing: 0.05em;
 }
 
-.badge-rust { background: var(--rust-dim); color: var(--rust); border: 1px solid var(--rust-dim); }
-.badge-research { background: var(--blue-dim); color: var(--blue); border: 1px solid #1e3d5c; }
-
-/* ── LAYOUT ── */
-.app {
-  display: flex;
-  flex-direction: column;
-  height: calc(100vh - 52px);
+.badge-vrr {
+  color: var(--accent-rose);
+  border-color: rgba(244, 63, 94, 0.3);
+  background: rgba(244, 63, 94, 0.05);
 }
 
+/* ── TOOLBAR ── */
 .toolbar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 20px;
+  gap: 16px;
+  padding: 12px 24px;
   border-bottom: 1px solid var(--border);
-  background: var(--bg1);
+  background: var(--bg-toolbar);
+  backdrop-filter: blur(8px);
   flex-shrink: 0;
 }
 
+.toolbar-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .toolbar-label {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-dim);
   font-family: var(--font-mono);
-  letter-spacing: 0.06em;
-  margin-right: 4px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .toggle-group {
   display: flex;
-  background: var(--bg2);
+  background: var(--bg-toggle-group);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  overflow: hidden;
+  padding: 2px;
 }
 
 .toggle-btn {
-  padding: 5px 12px;
+  padding: 6px 14px;
   font-size: 11px;
   font-family: var(--font-mono);
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   border: none;
+  border-radius: calc(var(--radius) - 2px);
   background: transparent;
   color: var(--text-dim);
-  transition: all 0.15s;
-  letter-spacing: 0.04em;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .toggle-btn.active {
-  background: var(--rust);
+  background: var(--accent-rust);
   color: #fff;
+  box-shadow: 0 0 10px var(--accent-rust-glow);
 }
 
-.toggle-btn:hover:not(.active) { color: var(--text); background: var(--bg3); }
+.toggle-btn:hover:not(.active) {
+  color: var(--text);
+  background: var(--bg-button-sec-hover);
+}
 
-.spacer { flex: 1; }
-
-.btn-analyze {
-  padding: 7px 20px;
-  background: var(--rust);
-  color: #fff;
-  border: none;
-  border-radius: var(--radius);
-  font-family: var(--font-ui);
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-  letter-spacing: 0.04em;
-  transition: all 0.15s;
+.cargo-checkbox-container {
   display: flex;
   align-items: center;
-  gap: 7px;
-  position: relative;
-  overflow: hidden;
-}
-
-.btn-analyze::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, transparent 60%);
-  pointer-events: none;
-}
-
-.btn-analyze:hover { background: #f07040; transform: translateY(-1px); }
-.btn-analyze:active { transform: translateY(0); }
-.btn-analyze:disabled { background: var(--rust-dim); cursor: not-allowed; transform: none; }
-
-.btn-clear {
-  padding: 6px 12px;
-  background: transparent;
-  color: var(--text-dim);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  font-family: var(--font-mono);
+  gap: 8px;
   font-size: 11px;
-  cursor: pointer;
-  transition: all 0.15s;
-  letter-spacing: 0.04em;
-}
-.btn-clear:hover { color: var(--text); border-color: var(--border-hi); }
-
-.cargo-toggle {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 11px;
-  font-family: var(--font-mono);
   color: var(--text-dim);
   cursor: pointer;
   user-select: none;
 }
 
-.cargo-toggle input[type=checkbox] {
-  accent-color: var(--rust);
-  width: 14px;
-  height: 14px;
+.cargo-checkbox-container input {
+  accent-color: var(--accent-rust);
   cursor: pointer;
 }
 
-/* ── MAIN SPLIT ── */
+.btn {
+  padding: 8px 18px;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid transparent;
+}
+
+.btn-secondary {
+  background: var(--bg-button-sec);
+  color: var(--text-dim);
+  border-color: var(--border);
+}
+
+.btn-secondary:hover {
+  color: var(--text);
+  border-color: var(--border-hi);
+  background: var(--bg-button-sec-hover);
+}
+
+.btn-primary {
+  background: var(--accent-rust);
+  color: #fff;
+  box-shadow: 0 2px 8px var(--accent-rust-glow);
+}
+
+.btn-primary:hover {
+  background: var(--accent-rust-hover);
+  box-shadow: 0 4px 12px var(--accent-rust-glow);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ── WORKSPACE SPLIT ── */
 .workspace {
   display: flex;
   flex: 1;
   overflow: hidden;
+  position: relative;
 }
 
-/* ── EDITORS ── */
+/* ── EDITORS PANEL ── */
 .editors-panel {
   display: flex;
   flex-direction: column;
-  width: 52%;
+  width: 50%;
   border-right: 1px solid var(--border);
   overflow: hidden;
+  background: var(--bg-panel);
 }
 
 .editor-pane {
@@ -249,6 +340,7 @@ header {
   flex-direction: column;
   flex: 1;
   overflow: hidden;
+  position: relative;
 }
 
 .editor-pane + .editor-pane {
@@ -258,318 +350,419 @@ header {
 .pane-header {
   display: flex;
   align-items: center;
-  padding: 0 16px;
-  height: 34px;
-  background: var(--bg2);
+  padding: 0 20px;
+  height: 38px;
+  background: var(--bg-pane-header);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
-  gap: 8px;
+  gap: 10px;
 }
 
-.pane-dot {
+.pane-indicator {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  flex-shrink: 0;
+  box-shadow: 0 0 10px currentColor;
 }
-
-.pane-dot-rust { background: var(--rust); box-shadow: 0 0 8px var(--rust); }
-.pane-dot-c { background: var(--blue); box-shadow: 0 0 8px var(--blue); }
 
 .pane-title {
   font-size: 11px;
   font-family: var(--font-mono);
   font-weight: 600;
-  letter-spacing: 0.06em;
-  color: var(--text);
+  letter-spacing: 0.08em;
 }
 
-.pane-hint {
+.pane-desc {
   font-size: 10px;
-  font-family: var(--font-mono);
   color: var(--text-dimmer);
   margin-left: auto;
-  letter-spacing: 0.04em;
-}
-
-.editor-wrapper {
-  flex: 1;
-  overflow: hidden;
-  position: relative;
-}
-
-.line-numbers {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 44px;
-  padding: 14px 0;
-  font-size: 12px;
   font-family: var(--font-mono);
-  line-height: 1.6;
-  color: var(--text-dimmer);
-  text-align: right;
-  padding-right: 10px;
-  pointer-events: none;
-  z-index: 2;
-  background: var(--bg1);
-  border-right: 1px solid var(--border);
+}
+
+.editor-container-wrapper {
+  flex: 1;
+  position: relative;
   overflow: hidden;
 }
 
-.line-numbers div { height: 19.2px; }
+/* Monaco instances */
+.monaco-instance {
+  width: 100%;
+  height: 100%;
+}
 
-textarea.code-editor {
-  position: absolute;
-  inset: 0;
-  left: 44px;
-  width: calc(100% - 44px);
-  padding: 14px 16px;
-  background: var(--bg1);
+/* Fallback textareas if Monaco CDN fails */
+.fallback-editor {
+  width: 100%;
+  height: 100%;
+  background: var(--bg-fallback-editor);
   color: var(--text);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.6;
   border: none;
   outline: none;
+  padding: 16px;
   resize: none;
-  tab-size: 4;
   white-space: pre;
-  overflow: auto;
-  caret-color: var(--rust);
 }
 
-textarea.code-editor::selection { background: rgba(232,99,58,0.25); }
-
-textarea.code-editor::placeholder {
-  color: var(--text-dimmer);
-  font-style: italic;
-}
-
-/* ── RESULTS PANEL ── */
+/* ── DIAGNOSTICS & GRAPHS PANEL ── */
 .results-panel {
   flex: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: var(--bg0);
+  background: var(--bg-glass);
+  backdrop-filter: blur(16px);
 }
 
-.results-header {
-  padding: 10px 20px;
+/* Panel Header Tabs */
+.results-tabs {
+  display: flex;
   border-bottom: 1px solid var(--border);
-  background: var(--bg1);
+  background: var(--bg-toolbar);
   flex-shrink: 0;
+}
+
+.tab-btn {
+  padding: 14px 24px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-ui);
+  color: var(--text-dim);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 0.05em;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
-.results-title {
-  font-size: 11px;
+.tab-btn:hover {
+  color: var(--text);
+  background: var(--bg-tab-hover);
+}
+
+.tab-btn.active {
+  color: var(--text);
+  border-bottom-color: var(--accent-rust);
+}
+
+.tab-badge {
   font-family: var(--font-mono);
-  font-weight: 600;
-  letter-spacing: 0.08em;
+  font-size: 9px;
+  background: var(--border-hi);
   color: var(--text-dim);
-  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 10px;
 }
 
-.result-count-badge {
-  font-size: 10px;
-  font-family: var(--font-mono);
-  padding: 2px 7px;
-  border-radius: 3px;
-  font-weight: 600;
+.tab-badge.badge-alert {
+  background: var(--accent-rust-glow);
+  color: var(--accent-rust);
 }
 
-.elapsed {
-  margin-left: auto;
-  font-size: 10px;
-  font-family: var(--font-mono);
-  color: var(--text-dimmer);
+/* Content Area */
+.panel-tab-content {
+  flex: 1;
+  display: none;
+  overflow: hidden;
+  position: relative;
 }
 
-/* metrics strip */
-.metrics-strip {
+.panel-tab-content.active {
   display: flex;
-  gap: 0;
+  flex-direction: column;
+}
+
+/* METRICS GRID */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
   border-bottom: 1px solid var(--border);
+  background: var(--bg-metrics-grid);
   flex-shrink: 0;
 }
 
 .metric-card {
-  flex: 1;
-  padding: 12px 16px;
+  padding: 16px 20px;
   border-right: 1px solid var(--border);
-  transition: background 0.2s;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.metric-card:last-child { border-right: none; }
-.metric-card:hover { background: var(--bg2); }
+.metric-card:last-child {
+  border-right: none;
+}
 
 .metric-label {
   font-size: 9px;
   font-family: var(--font-mono);
-  letter-spacing: 0.1em;
-  color: var(--text-dimmer);
   text-transform: uppercase;
-  margin-bottom: 5px;
+  color: var(--text-dimmer);
+  letter-spacing: 0.1em;
 }
 
 .metric-value {
-  font-size: 20px;
+  font-size: 22px;
   font-family: var(--font-mono);
-  font-weight: 600;
-  line-height: 1;
+  font-weight: 700;
+  line-height: 1.1;
 }
 
-.metric-sub {
-  font-size: 9px;
-  font-family: var(--font-mono);
-  color: var(--text-dimmer);
-  margin-top: 4px;
+.metric-trend {
+  font-size: 10px;
+  color: var(--text-dim);
 }
 
-/* filter tabs */
-.filter-row {
+/* ISSUES LIST */
+.issues-filter-bar {
   display: flex;
-  gap: 0;
+  padding: 8px 16px;
+  background: var(--bg-filter-bar);
   border-bottom: 1px solid var(--border);
+  gap: 8px;
   flex-shrink: 0;
   overflow-x: auto;
 }
 
-.filter-tab {
-  padding: 8px 16px;
-  font-size: 11px;
+.pill-filter {
+  padding: 4px 12px;
+  font-size: 10px;
   font-family: var(--font-mono);
-  font-weight: 500;
+  font-weight: 600;
+  border-radius: 100px;
   cursor: pointer;
-  border: none;
-  background: transparent;
+  background: var(--bg-button-sec);
+  border: 1px solid var(--border);
   color: var(--text-dim);
-  border-bottom: 2px solid transparent;
   transition: all 0.15s;
-  white-space: nowrap;
-  letter-spacing: 0.04em;
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
-.filter-tab:hover { color: var(--text); background: var(--bg2); }
-.filter-tab.active { color: var(--text); border-bottom-color: var(--rust); }
-
-.filter-tab .count-pill {
-  font-size: 9px;
-  padding: 1px 5px;
-  border-radius: 3px;
-  font-weight: 700;
+.pill-filter:hover {
+  background: var(--bg-button-sec-hover);
+  color: var(--text);
 }
 
-/* issue list */
-.issues-scroll {
+.pill-filter.active {
+  background: var(--text-dim);
+  color: var(--bg-darkest);
+}
+
+.pill-filter.active.filter-error { background: var(--red); color: #fff; }
+.pill-filter.active.filter-warning { background: var(--yellow); color: #000; }
+.pill-filter.active.filter-info { background: var(--accent-cyan); color: #fff; }
+.pill-filter.active.filter-hint { background: var(--accent-violet); color: #fff; }
+
+.issues-container {
   flex: 1;
   overflow-y: auto;
-  padding: 8px 0;
-}
-
-.issues-scroll::-webkit-scrollbar { width: 4px; }
-.issues-scroll::-webkit-scrollbar-track { background: transparent; }
-.issues-scroll::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 2px; }
-
-.issue-item {
-  padding: 10px 20px;
-  border-bottom: 1px solid var(--border);
-  cursor: pointer;
-  transition: background 0.12s;
+  padding: 12px 20px;
   display: flex;
-  gap: 12px;
-  align-items: flex-start;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.issue-item:hover { background: var(--bg2); }
-.issue-item:last-child { border-bottom: none; }
+.issues-container::-webkit-scrollbar { width: 6px; }
+.issues-container::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
 
-.issue-sev {
-  width: 5px;
-  border-radius: 3px;
-  flex-shrink: 0;
-  align-self: stretch;
-  min-height: 36px;
+.issue-item-card {
+  padding: 14px 18px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: relative;
+  overflow: hidden;
 }
 
-.sev-error { background: var(--red); }
-.sev-warning { background: var(--yellow); }
-.sev-info { background: var(--blue); }
-.sev-hint { background: var(--purple); }
+.issue-item-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  height: 100%;
+  background: var(--text-dimmer);
+}
 
-.issue-body { flex: 1; min-width: 0; }
+.issue-item-card.sev-error::before { background: var(--red); }
+.issue-item-card.sev-warning::before { background: var(--yellow); }
+.issue-item-card.sev-info::before { background: var(--accent-cyan); }
+.issue-item-card.sev-hint::before { background: var(--accent-violet); }
 
-.issue-top {
+.issue-item-card:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-hi);
+  transform: translateX(2px);
+}
+
+.issue-card-top {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 4px;
 }
 
-.issue-code {
-  font-size: 10px;
+.issue-tag {
   font-family: var(--font-mono);
-  font-weight: 600;
+  font-size: 10px;
+  font-weight: 700;
   padding: 2px 6px;
-  border-radius: 3px;
-  letter-spacing: 0.06em;
+  border-radius: var(--radius-sm);
 }
 
-.code-error   { background: var(--red-dim);    color: var(--red); }
-.code-warning { background: var(--yellow-dim); color: var(--yellow); }
-.code-info    { background: var(--blue-dim);   color: var(--blue); }
-.code-hint    { background: #2a1f4a;           color: var(--purple); }
+.issue-tag.tag-error { background: rgba(239, 68, 68, 0.12); color: var(--red); }
+.issue-tag.tag-warning { background: rgba(234, 179, 8, 0.12); color: var(--yellow); }
+.issue-tag.tag-info { background: rgba(6, 182, 212, 0.12); color: var(--accent-cyan); }
+.issue-tag.tag-hint { background: rgba(139, 92, 246, 0.12); color: var(--accent-violet); }
 
-.issue-loc {
+.issue-category-label {
   font-size: 10px;
   font-family: var(--font-mono);
+  color: var(--text-dimmer);
+}
+
+.issue-coord {
+  font-family: var(--font-mono);
+  font-size: 10px;
   color: var(--text-dimmer);
   margin-left: auto;
 }
 
 .issue-msg {
-  font-size: 12px;
-  font-family: var(--font-mono);
-  color: var(--text);
+  font-size: 13px;
   line-height: 1.5;
-  word-break: break-word;
+  color: var(--text);
 }
 
-.issue-snippet {
+.issue-suggestion-box {
+  margin-top: 4px;
+  padding: 8px 12px;
+  background: rgba(16, 185, 129, 0.05);
+  border: 1px solid rgba(16, 185, 129, 0.15);
+  border-radius: var(--radius-sm);
   font-size: 11px;
-  font-family: var(--font-mono);
-  color: var(--text-dimmer);
-  margin-top: 5px;
-  padding: 4px 8px;
-  background: var(--bg2);
-  border-radius: 3px;
-  border-left: 2px solid var(--border-hi);
-  white-space: pre-wrap;
-  word-break: break-all;
-}
-
-.issue-suggestion {
-  font-size: 11px;
-  font-family: var(--font-mono);
   color: var(--green);
-  margin-top: 5px;
   display: flex;
-  align-items: flex-start;
-  gap: 5px;
+  gap: 6px;
 }
 
-.issue-suggestion::before { content: '→'; flex-shrink: 0; }
+.issue-suggestion-box::before {
+  content: '⚡';
+}
 
-/* empty / loading states */
-.state-panel {
+/* ── INTERACTIVE CANVAS NODE GRAPH ── */
+.canvas-graph-container {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: var(--bg-canvas-graph);
+}
+
+#nodeGraphCanvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+}
+
+#nodeGraphCanvas:active {
+  cursor: grabbing;
+}
+
+/* Controls overlay for graph */
+.graph-controls {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  display: flex;
+  gap: 8px;
+  z-index: 10;
+}
+
+.graph-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--bg-glass-hi);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.15s;
+  box-shadow: var(--shadow);
+}
+
+.graph-btn:hover {
+  color: var(--text);
+  border-color: var(--border-hi);
+}
+
+/* Info overlay on graph */
+.graph-info-overlay {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  background: var(--bg-glass-hi);
+  border: 1px solid var(--border);
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  font-size: 11px;
+  max-width: 260px;
+  pointer-events: none;
+  box-shadow: var(--shadow);
+}
+
+.graph-info-title {
+  font-weight: 700;
+  margin-bottom: 4px;
+  color: var(--text);
+}
+
+/* SVG CONNECTOR LINES FOR Monaco highlight link overlay */
+#overlaySvg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 100;
+  pointer-events: none;
+}
+
+.connector-line {
+  stroke: var(--accent-rust);
+  stroke-width: 1.5;
+  stroke-dasharray: 4, 3;
+  animation: lineDash 20s linear infinite;
+  fill: none;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+@keyframes lineDash {
+  to { stroke-dashoffset: -100; }
+}
+
+/* Empty, Loading, and Info States */
+.state-box {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -577,289 +770,310 @@ textarea.code-editor::placeholder {
   justify-content: center;
   gap: 16px;
   padding: 40px;
-  color: var(--text-dimmer);
-}
-
-.state-icon {
-  font-size: 40px;
-  opacity: 0.4;
-}
-
-.state-msg {
-  font-size: 13px;
-  font-family: var(--font-mono);
-  text-align: center;
-  line-height: 1.7;
-  max-width: 300px;
-}
-
-.state-msg strong { color: var(--text-dim); }
-
-/* spinner */
-.spinner {
-  width: 32px;
-  height: 32px;
-  border: 2px solid var(--border);
-  border-top-color: var(--rust);
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-}
-
-@keyframes spin { to { transform: rotate(360deg); } }
-
-/* sample buttons */
-.sample-buttons {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  justify-content: center;
-  margin-top: 8px;
-}
-
-.sample-btn {
-  padding: 5px 12px;
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
   color: var(--text-dim);
-  font-size: 11px;
-  font-family: var(--font-mono);
-  cursor: pointer;
-  transition: all 0.15s;
-  letter-spacing: 0.03em;
+  text-align: center;
 }
 
-.sample-btn:hover { border-color: var(--rust); color: var(--rust); background: var(--rust-glow); }
+.state-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
 
-/* error state */
-.error-panel {
-  margin: 16px 20px;
-  padding: 12px 16px;
-  background: var(--red-dim);
-  border: 1px solid var(--red);
-  border-radius: var(--radius);
-  font-size: 12px;
-  font-family: var(--font-mono);
-  color: var(--red);
+.state-desc {
+  font-size: 13px;
+  max-width: 320px;
   line-height: 1.6;
 }
 
-/* empty results */
-.all-clear {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  padding: 40px;
-  color: var(--green);
+.loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent-rust);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
 }
 
-.all-clear-icon { font-size: 36px; }
-.all-clear-msg { font-size: 13px; font-family: var(--font-mono); }
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
 
-/* responsive resize handle */
-.resize-handle {
-  width: 3px;
+/* Split drag handles */
+.drag-handle {
+  width: 4px;
   background: var(--border);
   cursor: col-resize;
   flex-shrink: 0;
-  transition: background 0.15s;
   position: relative;
-}
-.resize-handle:hover,
-.resize-handle.dragging { background: var(--rust); }
-
-/* ── SCROLLBARS ── */
-textarea.code-editor::-webkit-scrollbar { width: 4px; height: 4px; }
-textarea.code-editor::-webkit-scrollbar-track { background: transparent; }
-textarea.code-editor::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 2px; }
-
-/* ── ENTRY ANIMATION ── */
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
+  transition: background 0.2s;
+  z-index: 10;
 }
 
-.issue-item {
-  animation: fadeUp 0.2s ease both;
+.drag-handle:hover, .drag-handle.dragging {
+  background: var(--accent-rust);
+  box-shadow: 0 0 10px var(--accent-rust);
+}
+
+.sample-drawer-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.sample-pill {
+  padding: 4px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.sample-pill:hover {
+  border-color: var(--accent-rust);
+  color: var(--accent-rust);
+}
+
+/* Theme Toggle Button */
+.theme-toggle-btn {
+  background: var(--bg-glass-hi);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: var(--transition);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  font-size: 16px;
+  outline: none;
+}
+
+.theme-toggle-btn:hover {
+  border-color: var(--border-hi);
+  transform: scale(1.05);
+}
+
+.theme-toggle-btn:active {
+  transform: scale(0.95);
+}
+
+.theme-toggle-btn .sun-icon {
+  position: absolute;
+  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.5s;
+  opacity: 0;
+  transform: translateY(20px) rotate(90deg);
+}
+
+.theme-toggle-btn .moon-icon {
+  position: absolute;
+  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.5s;
+  opacity: 1;
+  transform: translateY(0) rotate(0deg);
+}
+
+[data-theme="light"] .theme-toggle-btn .sun-icon {
+  opacity: 1;
+  transform: translateY(0) rotate(0deg);
+}
+
+[data-theme="light"] .theme-toggle-btn .moon-icon {
+  opacity: 0;
+  transform: translateY(-20px) rotate(-90deg);
 }
 
 </style>
 </head>
 <body>
 
-<header>
-  <div class="logo">
-    <div class="logo-icon">🦀</div>
-    <div>
-      <div class="logo-text">RustGuard</div>
-      <div class="logo-sub">C → Rust Transpilation Analyser</div>
-    </div>
-  </div>
-  <div class="header-right">
-    <span class="badge badge-research">Wu et al. 2025</span>
-    <span class="badge badge-rust">v0.3</span>
-  </div>
-</header>
+<!-- Canvas background network -->
+<canvas id="bgCanvas"></canvas>
 
-<div class="app">
+<!-- SVG Link Connectors -->
+<svg id="overlaySvg">
+  <path id="connectorPath" class="connector-line" d="" />
+</svg>
+
+<div class="app-container">
+  <!-- HEADER -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon-container">🦀</div>
+      <div class="logo-text-block">
+        <span class="logo-title">RustGuard Workspace</span>
+        <span class="logo-subtitle">C→Rust Transpilation Analyser</span>
+      </div>
+    </div>
+    <div class="header-meta">
+      <span class="meta-badge badge-vrr" id="vrrSummary">VRR: 0</span>
+      <span class="meta-badge">LSP Mode: Active</span>
+      <span class="meta-badge" style="color:var(--accent-cyan);border-color:rgba(6,182,212,0.3)">v0.3.0</span>
+      <button class="theme-toggle-btn" onclick="toggleTheme()" aria-label="Toggle theme" title="Toggle dark/light theme">
+        <span class="sun-icon">☀️</span>
+        <span class="moon-icon">🌙</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- TOOLBAR -->
   <div class="toolbar">
-    <span class="toolbar-label">MODE</span>
-    <div class="toggle-group">
-      <button class="toggle-btn active" id="modeRegex" onclick="setMode('regex')">REGEX</button>
-      <button class="toggle-btn" id="modeAst" onclick="setMode('ast')">AST</button>
-      <button class="toggle-btn" id="modeFull" onclick="setMode('full')">FULL</button>
+    <div class="toolbar-section">
+      <span class="toolbar-label">Engine Mode</span>
+      <div class="toggle-group">
+        <button class="toggle-btn active" id="modeRegex" onclick="setAnalysisMode('regex')">Regex (Instant)</button>
+        <button class="toggle-btn" id="modeAst" onclick="setAnalysisMode('ast')">AST (Semantic)</button>
+        <button class="toggle-btn" id="modeFull" onclick="setAnalysisMode('full')">Full check</button>
+      </div>
     </div>
 
-    <label class="cargo-toggle" title="Runs cargo check — requires Rust toolchain on server, takes ~5s">
-      <input type="checkbox" id="cargoCheck">
-      <span>cargo check</span>
-    </label>
+    <div class="toolbar-section">
+      <label class="cargo-checkbox-container" title="Run backend cargo diagnostics (takes ~5s)">
+        <input type="checkbox" id="runCargoCheck" onchange="runAnalysisDebounced()">
+        <span>cargo check</span>
+      </label>
+    </div>
 
-    <div class="spacer"></div>
+    <div style="flex:1"></div>
 
-    <button class="btn-clear" onclick="clearAll()">CLEAR</button>
-    <button class="btn-analyze" id="analyzeBtn" onclick="runAnalysis()">
-      <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-        <path d="M6.5 1L12 6.5L6.5 12M1 6.5H12" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <button class="btn btn-secondary" onclick="clearWorkspace()">Clear</button>
+    <button class="btn btn-primary" id="analyzeBtn" onclick="runAnalysis()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <path d="M5 12h14M12 5l7 7-7 7"/>
       </svg>
-      ANALYSE
+      Run Analysis
     </button>
   </div>
 
+  <!-- WORKSPACE -->
   <div class="workspace" id="workspace">
-    <!-- Left: editors -->
+    <!-- Left Panels: Code Editors -->
     <div class="editors-panel" id="editorsPanel">
-
-      <!-- Rust editor -->
-      <div class="editor-pane" id="rustPane">
+      
+      <!-- Rust Pane -->
+      <div class="editor-pane">
         <div class="pane-header">
-          <div class="pane-dot pane-dot-rust"></div>
-          <span class="pane-title">RUST CODE</span>
-          <span class="pane-hint">transpiled / LLM-generated</span>
+          <div class="pane-indicator" style="color:var(--accent-rust)"></div>
+          <span class="pane-title" style="color:var(--accent-rust)">Rust Translation</span>
+          <span class="pane-desc">transpiled / unsafe codebase</span>
         </div>
-        <div class="editor-wrapper" id="rustWrapper">
-          <div class="line-numbers" id="rustLineNums"></div>
-          <textarea
-            class="code-editor"
-            id="rustEditor"
-            placeholder="// Paste your transpiled Rust code here...
-// Or click one of the examples below.
-
-fn main() {
-    // LLM-generated or c2rust output goes here
-}"
-            spellcheck="false"
-            oninput="syncLineNums('rust')"
-            onscroll="syncScroll('rust')"
-          ></textarea>
+        <div class="editor-container-wrapper" id="rustEditorWrapper">
+          <div id="rustMonaco" class="monaco-instance"></div>
+          <textarea id="rustTextarea" class="fallback-editor" style="display:none;" placeholder="// Paste Rust translation here..." oninput="onTextareaInput('rust')"></textarea>
         </div>
       </div>
 
-      <!-- C editor -->
-      <div class="editor-pane" id="cPane">
+      <!-- C Pane -->
+      <div class="editor-pane">
         <div class="pane-header">
-          <div class="pane-dot pane-dot-c"></div>
-          <span class="pane-title">C SOURCE</span>
-          <span class="pane-hint">original (optional — enables VRR check)</span>
+          <div class="pane-indicator" style="color:var(--accent-cyan)"></div>
+          <span class="pane-title" style="color:var(--accent-cyan)">C Source Link</span>
+          <span class="pane-desc">original source (optional)</span>
         </div>
-        <div class="editor-wrapper" id="cWrapper">
-          <div class="line-numbers" id="cLineNums"></div>
-          <textarea
-            class="code-editor"
-            id="cEditor"
-            placeholder="// Paste the original C source here (optional).
-// Enables vulnerability retention rate (VRR) analysis.
-
-#include <stdio.h>
-
-void example(char *input) {
-    char buf[64];
-    strcpy(buf, input); // ← VRR will flag this
-}"
-            spellcheck="false"
-            oninput="syncLineNums('c')"
-            onscroll="syncScroll('c')"
-          ></textarea>
+        <div class="editor-container-wrapper" id="cEditorWrapper">
+          <div id="cMonaco" class="monaco-instance"></div>
+          <textarea id="cTextarea" class="fallback-editor" style="display:none;" placeholder="// Paste original C source here..." oninput="onTextareaInput('c')"></textarea>
         </div>
       </div>
 
     </div>
 
-    <!-- Resize handle -->
-    <div class="resize-handle" id="resizeHandle"></div>
+    <!-- Drag Handle -->
+    <div class="drag-handle" id="workspaceDragHandle"></div>
 
-    <!-- Right: results -->
+    <!-- Right Panels: Results / Dashboard -->
     <div class="results-panel" id="resultsPanel">
-
-      <div class="results-header" id="resultsHeader">
-        <span class="results-title">RESULTS</span>
-        <span id="resultsCountBadge"></span>
-        <span class="elapsed" id="elapsed"></span>
-      </div>
-
-      <!-- Metrics strip (hidden until results) -->
-      <div class="metrics-strip" id="metricsStrip" style="display:none">
-        <div class="metric-card">
-          <div class="metric-label">SSS</div>
-          <div class="metric-value" id="mSSS">—</div>
-          <div class="metric-sub">semantic safety</div>
-        </div>
-        <div class="metric-card">
-          <div class="metric-label">UEI</div>
-          <div class="metric-value" id="mUEI">—</div>
-          <div class="metric-sub">unsafe exposure</div>
-        </div>
-        <div class="metric-card">
-          <div class="metric-label">VRR</div>
-          <div class="metric-value" id="mVRR">—</div>
-          <div class="metric-sub">vuln retained</div>
-        </div>
-        <div class="metric-card">
-          <div class="metric-label">LINES</div>
-          <div class="metric-value" id="mLines">—</div>
-          <div class="metric-sub">rust code</div>
-        </div>
-        <div class="metric-card">
-          <div class="metric-label">FNS</div>
-          <div class="metric-value" id="mFns">—</div>
-          <div class="metric-sub">functions</div>
-        </div>
-      </div>
-
-      <!-- Filter tabs (hidden until results) -->
-      <div class="filter-row" id="filterRow" style="display:none">
-        <button class="filter-tab active" id="tabAll" onclick="filterIssues('all')">
-          ALL <span class="count-pill" id="pillAll" style="background:#2a2f3d;color:#6b7394">0</span>
+      <div class="results-tabs">
+        <button class="tab-btn active" id="tabIssues" onclick="switchTab('issues')">
+          Diagnostics
+          <span class="tab-badge badge-alert" id="issuesBadge">0</span>
         </button>
-        <button class="filter-tab" id="tabError" onclick="filterIssues('error')">
-          ERRORS <span class="count-pill" id="pillError" style="background:#5c1414;color:#e84040">0</span>
-        </button>
-        <button class="filter-tab" id="tabWarning" onclick="filterIssues('warning')">
-          WARNINGS <span class="count-pill" id="pillWarning" style="background:#5c4a14;color:#f5c842">0</span>
-        </button>
-        <button class="filter-tab" id="tabInfo" onclick="filterIssues('info')">
-          INFO <span class="count-pill" id="pillInfo" style="background:#1a3a5c;color:#4a9eff">0</span>
-        </button>
-        <button class="filter-tab" id="tabHint" onclick="filterIssues('hint')">
-          HINTS <span class="count-pill" id="pillHint" style="background:#2a1f4a;color:#9b7dff">0</span>
+        <button class="tab-btn" id="tabGraph" onclick="switchTab('graph')">
+          Ownership & Taint Graph
+          <span class="tab-badge">2D View</span>
         </button>
       </div>
 
-      <!-- Dynamic content area -->
-      <div id="resultsBody" style="flex:1;display:flex;flex-direction:column;overflow:hidden">
-        <!-- Initial state -->
-        <div class="state-panel" id="emptyState">
-          <div class="state-icon">🔍</div>
-          <div class="state-msg">
-            <strong>Paste your transpiled Rust code</strong> and click Analyse.<br><br>
-            Detects unsafe blocks, raw pointers, LLM hallucination patterns, aliasing artifacts, and C vulnerability retention.<br><br>
-            Based on <strong>Wu et al. (2025)</strong>
+      <!-- TAB: ISSUES -->
+      <div class="panel-tab-content active" id="contentIssues">
+        <!-- Quality metrics -->
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <span class="metric-label">SSS Score</span>
+            <span class="metric-value" id="valSSS" style="color:var(--green)">100%</span>
+            <span class="metric-trend">semantic safety</span>
           </div>
-          <div class="sample-buttons">
-            <button class="sample-btn" onclick="loadSample('unsafe')">unsafe sample</button>
-            <button class="sample-btn" onclick="loadSample('llm')">llm hallucination</button>
-            <button class="sample-btn" onclick="loadSample('aliasing')">aliasing sample</button>
+          <div class="metric-card">
+            <span class="metric-label">UEI Index</span>
+            <span class="metric-value" id="valUEI" style="color:var(--green)">0.0%</span>
+            <span class="metric-trend">unsafe exposure</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">VRR Value</span>
+            <span class="metric-value" id="valVRR" style="color:var(--green)">0</span>
+            <span class="metric-trend">retained flaws</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">Total Lines</span>
+            <span class="metric-value" id="valLines">—</span>
+            <span class="metric-trend">processed lines</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">Functions</span>
+            <span class="metric-value" id="valFns">—</span>
+            <span class="metric-trend">extracted fns</span>
+          </div>
+        </div>
+
+        <!-- Issue filters -->
+        <div class="issues-filter-bar">
+          <button class="pill-filter active" id="filterAll" onclick="filterSeverity('all')">All <span id="cntAll">0</span></button>
+          <button class="pill-filter filter-error" id="filterError" onclick="filterSeverity('error')">Errors <span id="cntError">0</span></button>
+          <button class="pill-filter filter-warning" id="filterWarning" onclick="filterSeverity('warning')">Warnings <span id="cntWarning">0</span></button>
+          <button class="pill-filter filter-info" id="filterInfo" onclick="filterSeverity('info')">Info <span id="cntInfo">0</span></button>
+          <button class="pill-filter filter-hint" id="filterHint" onclick="filterSeverity('hint')">Hints <span id="cntHint">0</span></button>
+        </div>
+
+        <!-- Issue dynamic scroll -->
+        <div class="issues-container" id="issuesList">
+          <div class="state-box" id="initialState">
+            <span style="font-size:32px">🔍</span>
+            <span class="state-title">Ready for Analysis</span>
+            <span class="state-desc">Input Rust transpiled code. Changes run automatically as you type.</span>
+            <div class="sample-drawer-row">
+              <span class="sample-pill" onclick="loadWorkspaceSample('unsafe')">Unsafe Code</span>
+              <span class="sample-pill" onclick="loadWorkspaceSample('llm')">LLM Hallucinations</span>
+              <span class="sample-pill" onclick="loadWorkspaceSample('aliasing')">Aliasing Artifacts</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: GRAPH -->
+      <div class="panel-tab-content" id="contentGraph">
+        <div class="canvas-graph-container">
+          <canvas id="nodeGraphCanvas"></canvas>
+          
+          <div class="graph-info-overlay">
+            <div class="graph-info-title">Interactive AST & Ownership Mapper</div>
+            <p style="color:var(--text-dim); margin-bottom:8px">Visual representation of transpiled Rust blocks. Nodes can be dragged and rearranged.</p>
+            <div style="display:flex; flex-direction:column; gap:4px">
+              <div style="display:flex; align-items:center; gap:6px"><span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--accent-rust)"></span> Struct Definition</div>
+              <div style="display:flex; align-items:center; gap:6px"><span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--accent-cyan)"></span> Safe Function</div>
+              <div style="display:flex; align-items:center; gap:6px"><span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--accent-rose)"></span> Unsafe Block / Expression</div>
+              <div style="display:flex; align-items:center; gap:6px"><span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--green)"></span> Taint Propagation Particle</div>
+            </div>
+          </div>
+
+          <div class="graph-controls">
+            <button class="graph-btn" title="Recenter Graph" onclick="recenterGraph()">⛶</button>
+            <button class="graph-btn" title="Clear Taint Particles" onclick="clearTaintParticles()">⚡</button>
           </div>
         </div>
       </div>
@@ -868,426 +1082,1043 @@ void example(char *input) {
   </div>
 </div>
 
+<!-- Load Monaco Editor via CDN -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
 <script>
-// ── STATE ────────────────────────────────────────────────────────────────────
-let currentMode = 'regex';
-let allIssues = [];
-let currentFilter = 'all';
+// ── STATE MANAGEMENT ─────────────────────────────────────────────────────────
+let currentAnalysisMode = 'regex';
+let currentSeverityFilter = 'all';
+let rawIssues = [];
+let analyzedMetrics = { sss: 100, uei: 0, vrr: 0, lines: 0, fns: 0 };
+let currentTab = 'issues';
 
-// ── LINE NUMBERS ─────────────────────────────────────────────────────────────
-function syncLineNums(id) {
-  const ta = document.getElementById(id === 'rust' ? 'rustEditor' : 'cEditor');
-  const nums = document.getElementById(id === 'rust' ? 'rustLineNums' : 'cLineNums');
-  const count = ta.value.split('\n').length;
-  nums.innerHTML = Array.from({length: count}, (_, i) =>
-    `<div>${i + 1}</div>`).join('');
-}
+let rustEditor = null;
+let cEditor = null;
+let isMonacoLoaded = false;
 
-function syncScroll(id) {
-  const ta = document.getElementById(id === 'rust' ? 'rustEditor' : 'cEditor');
-  const nums = document.getElementById(id === 'rust' ? 'rustLineNums' : 'cLineNums');
-  nums.scrollTop = ta.scrollTop;
-}
-
-// Init line numbers
-syncLineNums('rust');
-syncLineNums('c');
-
-// ── MODE ─────────────────────────────────────────────────────────────────────
-function setMode(mode) {
-  currentMode = mode;
-  ['regex','ast','full'].forEach(m => {
-    const el = document.getElementById('mode' + m.charAt(0).toUpperCase() + m.slice(1));
-    el.classList.toggle('active', m === mode);
-  });
-}
-
-// ── CLEAR ────────────────────────────────────────────────────────────────────
-function clearAll() {
-  document.getElementById('rustEditor').value = '';
-  document.getElementById('cEditor').value = '';
-  syncLineNums('rust');
-  syncLineNums('c');
-  resetResultsUI();
-}
-
-function resetResultsUI() {
-  allIssues = [];
-  document.getElementById('metricsStrip').style.display = 'none';
-  document.getElementById('filterRow').style.display = 'none';
-  document.getElementById('elapsed').textContent = '';
-  document.getElementById('resultsCountBadge').innerHTML = '';
-  const body = document.getElementById('resultsBody');
-  body.innerHTML = `
-    <div class="state-panel" id="emptyState">
-      <div class="state-icon">🔍</div>
-      <div class="state-msg">
-        <strong>Paste your transpiled Rust code</strong> and click Analyse.<br><br>
-        Detects unsafe blocks, raw pointers, LLM hallucination patterns, aliasing artifacts, and C vulnerability retention.<br><br>
-        Based on <strong>Wu et al. (2025)</strong>
-      </div>
-      <div class="sample-buttons">
-        <button class="sample-btn" onclick="loadSample('unsafe')">unsafe sample</button>
-        <button class="sample-btn" onclick="loadSample('llm')">llm hallucination</button>
-        <button class="sample-btn" onclick="loadSample('aliasing')">aliasing sample</button>
-      </div>
-    </div>`;
-}
-
-// ── SAMPLES ──────────────────────────────────────────────────────────────────
-const SAMPLES = {
-  unsafe: `use std::ptr;
-
-static mut GLOBAL_COUNTER: i32 = 0;
-
-pub unsafe fn increment_counter() {
-    GLOBAL_COUNTER += 1;
-}
-
-pub fn read_raw(ptr: *mut i32) -> i32 {
-    unsafe {
-        let val = *ptr;
-        let val2 = *ptr.add(1);
-        let val3 = *ptr.add(2);
-        std::mem::transmute::<i32, u32>(val) as i32
-    }
-}
-
-pub struct RawBuffer {
-    data: *mut u8,
-    other: *const u8,
-    size: usize,
-}
-
-pub fn process(buf: &RawBuffer) {
-    unsafe {
-        let slice = std::slice::from_raw_parts(buf.data, buf.size);
-        println!("{:?}", slice);
-    }
-}`,
-
-  llm: `// LLM-generated transpilation with hallucinated lifetimes
-use std::collections::HashMap;
-
-fn get_config<'static>() -> &'static str {
-    "hardcoded"
-}
-
-pub fn translate_string(input: *const i8) -> String {
-    unsafe {
-        let c_str = std::ffi::CStr::from_ptr(input);
-        c_str.to_string_lossy().into_owned()
-    }
-}
-
-pub fn lookup_or_die(map: &HashMap<String, String>, key: &str) -> String {
-    map.get(key).unwrap().clone()
-}
-
-pub fn index_array(data: &Vec<u8>, idx: usize) -> u8 {
-    unsafe { *data.get_unchecked(idx) }
-}
-
-pub fn cast_pointer(p: *mut u8) -> *mut u32 {
-    p as *mut u32
-}
-
-fn main() {
-    for i in 0..data.len() {
-        println!("{}", data[i]);
-    }
-}`,
-
-  aliasing: `// Aliasing artifacts from C pointer-heavy code
-use std::ptr;
-
-union DataUnion {
-    int_val: i32,
-    float_val: f32,
-    bytes: [u8; 4],
-}
-
-pub struct AliasedBuffer {
-    read_ptr: *const u8,
-    write_ptr: *mut u8,
-    meta_ptr: *mut u8,
-}
-
-pub fn aliased_read_write(buf: &mut AliasedBuffer, offset: usize) -> u8 {
-    unsafe {
-        ptr::write(buf.write_ptr.add(offset), 0xFF);
-        *buf.read_ptr.add(offset)
-    }
-}
-
-pub fn reinterpret(val: i32) -> f32 {
-    unsafe { std::mem::transmute(val) }
-}
-
-pub fn null_check_bypassed(p: *mut i32) {
-    unsafe {
-        std::ptr::write(p, 42);
-    }
-}
-
-pub fn double_free_risk(p: *mut i32) {
-    unsafe {
-        let _ = Box::from_raw(p);
-        let _ = Box::from_raw(p); // double free
-    }
-}`
+// ── THEME CACHED COLORS FOR ANIMATED CANVASES ──────────────────────────────
+let themeColors = {
+  bgGlassHi: 'rgba(24, 24, 27, 0.95)',
+  text: '#fafafa',
+  textDim: '#a1a1aa',
+  green: '#10b981',
+  accentRust: '#3b82f6',
+  accentCyan: '#06b6d4',
+  accentRose: '#ef4444'
 };
 
-function loadSample(name) {
-  document.getElementById('rustEditor').value = SAMPLES[name];
-  syncLineNums('rust');
-}
+const updateCachedThemeColors = () => {
+  const style = getComputedStyle(document.documentElement);
+  themeColors.bgGlassHi = style.getPropertyValue('--bg-glass-hi').trim() || 'rgba(24, 24, 27, 0.95)';
+  themeColors.text = style.getPropertyValue('--text').trim() || '#fafafa';
+  themeColors.textDim = style.getPropertyValue('--text-dim').trim() || '#a1a1aa';
+  themeColors.green = style.getPropertyValue('--green').trim() || '#10b981';
+  themeColors.accentRust = style.getPropertyValue('--accent-rust').trim() || '#3b82f6';
+  themeColors.accentCyan = style.getPropertyValue('--accent-cyan').trim() || '#06b6d4';
+  themeColors.accentRose = style.getPropertyValue('--accent-rose').trim() || '#ef4444';
+};
 
-// ── ANALYSIS ─────────────────────────────────────────────────────────────────
-async function runAnalysis() {
-  const rustCode = document.getElementById('rustEditor').value.trim();
-  if (!rustCode) {
-    showError('Please paste some Rust code first.');
+const toggleTheme = () => {
+  const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+  const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', newTheme);
+  localStorage.setItem('rustguard-theme', newTheme);
+  
+  updateCachedThemeColors();
+  
+  if (isMonacoLoaded && rustEditor && cEditor) {
+    const monacoTheme = newTheme === 'light' ? 'obsidian-neon-light' : 'obsidian-neon';
+    monaco.editor.setTheme(monacoTheme);
+  }
+};
+
+// ── LOCAL SCANNER (Keystroke-level Solution for struggles) ──────────────────
+// Matches pattern structures locally inside the browser under 2ms
+const LOCAL_RULES = [
+  { id: 'RAW001', rx: /\*mut\s+\w+|\*const\s+\w+/g, sev: 'Warning', cat: 'Memory', msg: 'Raw pointer detected — likely unsafe transpilation from C.', sug: 'Consider using References or Box.' },
+  { id: 'RAW002', rx: /\bunsafe\s*\{/g, sev: 'Warning', cat: 'Memory', msg: 'Unsafe block found.', sug: 'Encapsulate in safe abstractions.' },
+  { id: 'MEM001', rx: /std::mem::transmute/g, sev: 'Error', cat: 'Memory', msg: 'transmute is extremely dangerous.', sug: 'Use safe casts or as.' },
+  { id: 'IDIO001', rx: /\.unwrap\(\)/g, sev: 'Info', cat: 'Idiomatic', msg: 'unwrap() may panic.', sug: 'Use ? operator or match.' },
+  { id: 'IDIO002', rx: /\.clone\(\)/g, sev: 'Hint', cat: 'Performance', msg: 'clone() detected.', sug: 'Borrow with & T.' },
+  { id: 'SEM001', rx: /static\s+mut\s+/g, sev: 'Error', cat: 'Semantic', msg: 'static mut is discouraged.', sug: 'Use Mutex or once_cell.' },
+  { id: 'ALIAS001', rx: /union\s+\w+\s*\{/g, sev: 'Error', cat: 'Aliasing', msg: 'C-style union in Rust — no discriminant safety.', sug: 'Replace with safe enum.' },
+  { id: 'LLM_PAT001', rx: /'static\b/g, sev: 'Warning', cat: 'LlmHallucination', msg: 'static lifetime applied.', sug: 'Replace with scoped lifetimes.' },
+  { id: 'LLM_PAT002', rx: /\.get_unchecked\(|\.get_unchecked_mut\(/g, sev: 'Error', cat: 'LlmHallucination', msg: 'get_unchecked bypasses bounds checking.', sug: 'Use .get() returning Option.' },
+  { id: 'CVE_BUF001', rx: /ptr::copy\b|ptr::copy_nonoverlapping\b/g, sev: 'Error', cat: 'CveRetention', msg: 'memcpy/strcpy translation — CWE-120 buffer overflow vulnerability retained.', sug: 'Use copy_from_slice.' },
+  { id: 'CVE_INT001', rx: /\bas\s+i8\b|\bas\s+u8\b|\bas\s+i16\b|\bas\s+u16\b/g, sev: 'Warning', cat: 'CveRetention', msg: 'Narrowing cast — truncation risk (CWE-190 integer overflow).', sug: 'Use TryFrom.' }
+];
+
+// Initialize background canvas
+const initBackgroundCanvas = () => {
+  const canvas = document.getElementById('bgCanvas');
+  const ctx = canvas.getContext('2d');
+  let width = canvas.width = window.innerWidth;
+  let height = canvas.height = window.innerHeight;
+
+  const points = [];
+  for (let i = 0; i < 45; i++) {
+    points.push({
+      x: Math.random() * width,
+      y: Math.random() * height,
+      vx: (Math.random() - 0.5) * 0.35,
+      vy: (Math.random() - 0.5) * 0.35,
+      r: Math.random() * 2 + 1
+    });
+  }
+
+  const animate = () => {
+    ctx.clearRect(0, 0, width, height);
+    
+    // Draw subtle cyber grid
+    ctx.strokeStyle = themeColors.textDim + '0a'; // Dynamic faint grid
+    ctx.lineWidth = 1;
+    const step = 60;
+    for (let x = 0; x < width; x += step) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, height);
+      ctx.stroke();
+    }
+    for (let y = 0; y < height; y += step) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(width, y);
+      ctx.stroke();
+    }
+
+    // Draw particle connections
+    ctx.fillStyle = themeColors.accentRust + '66';
+    ctx.strokeStyle = themeColors.accentRust + '11';
+    ctx.lineWidth = 1;
+    
+    for (let i = 0; i < points.length; i++) {
+      const p = points[i];
+      p.x += p.vx;
+      p.y += p.vy;
+
+      if (p.x < 0 || p.x > width) p.vx *= -1;
+      if (p.y < 0 || p.y > height) p.vy *= -1;
+
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fill();
+
+      for (let j = i + 1; j < points.length; j++) {
+        const p2 = points[j];
+        const dist = Math.hypot(p.x - p2.x, p.y - p2.y);
+        if (dist < 180) {
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(p2.x, p2.y);
+          ctx.stroke();
+        }
+      }
+    }
+    requestAnimationFrame(animate);
+  };
+
+  animate();
+
+  window.addEventListener('resize', () => {
+    width = canvas.width = window.innerWidth;
+    height = canvas.height = window.innerHeight;
+  });
+};
+
+// Monaco loader configuration
+const initMonaco = () => {
+  if (typeof require === 'undefined') {
+    enableFallbackTextareas();
+    return;
+  }
+  require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } });
+  require(['vs/editor/editor.main'], function() {
+    isMonacoLoaded = true;
+    
+    // Custom theme matching obsidian/neon style (Dark Theme)
+    monaco.editor.defineTheme('obsidian-neon', {
+      base: 'vs-dark',
+      inherit: true,
+      rules: [
+        { token: 'comment', foreground: '475569', fontStyle: 'italic' },
+        { token: 'keyword', foreground: '3b82f6', fontStyle: 'bold' },
+        { token: 'number', foreground: '06b6d4' },
+        { token: 'string', foreground: '10b981' },
+        { token: 'type', foreground: '8b5cf6' },
+      ],
+      colors: {
+        'editor.background': '#09090b',
+        'editor.foreground': '#fafafa',
+        'editorLineNumber.foreground': '#3f3f46',
+        'editorLineNumber.activeForeground': '#3b82f6',
+        'editor.selectionBackground': '#3b82f633',
+        'editor.inactiveSelectionBackground': '#3b82f615',
+        'editor.lineHighlightBackground': '#18181b',
+      }
+    });
+
+    // Custom theme matching light theme
+    monaco.editor.defineTheme('obsidian-neon-light', {
+      base: 'vs',
+      inherit: true,
+      rules: [
+        { token: 'comment', foreground: '94a3b8', fontStyle: 'italic' },
+        { token: 'keyword', foreground: '2563eb', fontStyle: 'bold' },
+        { token: 'number', foreground: '0891b2' },
+        { token: 'string', foreground: '0d9488' },
+        { token: 'type', foreground: '7c3aed' },
+      ],
+      colors: {
+        'editor.background': '#ffffff',
+        'editor.foreground': '#09090b',
+        'editorLineNumber.foreground': '#a1a1aa',
+        'editorLineNumber.activeForeground': '#2563eb',
+        'editor.selectionBackground': '#2563eb25',
+        'editor.inactiveSelectionBackground': '#2563eb10',
+        'editor.lineHighlightBackground': '#f4f4f5',
+      }
+    });
+
+    const isLightTheme = document.documentElement.getAttribute('data-theme') === 'light';
+    const initialMonacoTheme = isLightTheme ? 'obsidian-neon-light' : 'obsidian-neon';
+
+    rustEditor = monaco.editor.create(document.getElementById('rustMonaco'), {
+      value: "",
+      language: 'rust',
+      theme: initialMonacoTheme,
+      minimap: { enabled: false },
+      scrollbar: { verticalWidth: 6, horizontalHeight: 6 },
+      automaticLayout: true
+    });
+
+    cEditor = monaco.editor.create(document.getElementById('cMonaco'), {
+      value: "",
+      language: 'cpp',
+      theme: initialMonacoTheme,
+      minimap: { enabled: false },
+      scrollbar: { verticalWidth: 6, horizontalHeight: 6 },
+      automaticLayout: true
+    });
+
+    // Subscribing to code changes to launch instant lint
+    rustEditor.onDidChangeModelContent(() => {
+      runAnalysisDebounced();
+    });
+
+    cEditor.onDidChangeModelContent(() => {
+      runAnalysisDebounced();
+    });
+
+    loadWorkspaceSample('unsafe');
+  });
+};
+
+const enableFallbackTextareas = () => {
+  document.getElementById('rustMonaco').style.display = 'none';
+  document.getElementById('cMonaco').style.display = 'none';
+  document.getElementById('rustTextarea').style.display = 'block';
+  document.getElementById('cTextarea').style.display = 'block';
+  loadWorkspaceSample('unsafe');
+};
+
+const getRustCode = () => {
+  if (isMonacoLoaded && rustEditor) {
+    return rustEditor.getValue();
+  }
+  return document.getElementById('rustTextarea').value;
+};
+
+const getCCode = () => {
+  if (isMonacoLoaded && cEditor) {
+    return cEditor.getValue();
+  }
+  return document.getElementById('cTextarea').value;
+};
+
+const setCodeValues = (rust, c) => {
+  if (isMonacoLoaded && rustEditor && cEditor) {
+    rustEditor.setValue(rust || "");
+    cEditor.setValue(c || "");
+  } else {
+    document.getElementById('rustTextarea').value = rust || "";
+    document.getElementById('cTextarea').value = c || "";
+  }
+};
+
+// ── DEBOUNCE LOOP ────────────────────────────────────────────────────────────
+let debounceTimer = null;
+const runAnalysisDebounced = () => {
+  // 1. Run local instant regex rules immediately to prevent UX latency
+  runLocalScanning();
+  
+  // 2. Debounce heavy server AST/Dataflow checks
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => {
+    if (currentAnalysisMode === 'ast' || currentAnalysisMode === 'full') {
+      runAnalysisServer();
+    }
+  }, 300);
+};
+
+// ── LOCAL COMPILER RUNNER (0-5ms Keystroke Scanner) ──────────────────────────
+const runLocalScanning = () => {
+  const code = getRustCode();
+  if (!code.trim()) {
+    resetDiagnosticsUI();
     return;
   }
 
+  const lines = code.split('\n');
+  const tempIssues = [];
+
+  // Match simple patterns
+  lines.forEach((lineText, idx) => {
+    LOCAL_RULES.forEach(rule => {
+      rule.rx.lastIndex = 0;
+      let match;
+      while ((match = rule.rx.exec(lineText)) !== null) {
+        tempIssues.push({
+          line: idx + 1,
+          column: match.index + 1,
+          severity: rule.sev,
+          category: rule.cat,
+          code: rule.id,
+          message: rule.msg,
+          suggestion: rule.sug,
+          snippet: lineText.trim()
+        });
+      }
+    });
+  });
+
+  // Calculate local safety score variables
+  const totalFns = (code.match(/fn\s+\w+/g) || []).length;
+  const semanticCount = tempIssues.filter(i => ['Memory', 'Aliasing', 'Semantic', 'CveRetention'].includes(i.category)).length;
+  
+  let sss = 100;
+  if (totalFns > 0) {
+    sss = Math.max(0, ((totalFns - Math.min(semanticCount, totalFns)) / totalFns) * 100);
+  }
+
+  let uei = 0;
+  const unsafeCount = tempIssues.filter(i => ['RAW001', 'RAW002', 'LLM_PAT002'].includes(i.code)).length;
+  if (tempIssues.length > 0) {
+    uei = (unsafeCount / tempIssues.length) * 100;
+  }
+
+  analyzedMetrics = {
+    sss: sss,
+    uei: uei,
+    vrr: tempIssues.filter(i => i.code.startsWith('CVE_')).length,
+    lines: lines.length,
+    fns: totalFns
+  };
+
+  rawIssues = tempIssues;
+  
+  // Render diagnostics dashboard
+  updateMetricsDisplay();
+  renderIssuesList();
+  
+  // Update node tree model in visual canvas
+  updateVisualGraphData();
+};
+
+// ── SERVER ANALYSIS CALL ──
+const runAnalysisServer = async () => {
+  const rustCode = getRustCode().trim();
+  const cCode = getCCode().trim();
+  if (!rustCode) return;
+
   const btn = document.getElementById('analyzeBtn');
   btn.disabled = true;
-  btn.innerHTML = `<div class="spinner" style="width:14px;height:14px;border-width:2px"></div> ANALYSING...`;
-
-  document.getElementById('metricsStrip').style.display = 'none';
-  document.getElementById('filterRow').style.display = 'none';
-  document.getElementById('resultsCountBadge').innerHTML = '';
-  document.getElementById('elapsed').textContent = '';
-
-  const body = document.getElementById('resultsBody');
-  body.innerHTML = `
-    <div class="state-panel">
-      <div class="spinner"></div>
-      <div class="state-msg">Running ${currentMode === 'full' ? 'full analysis' : currentMode + ' analysis'}...</div>
-    </div>`;
+  btn.innerHTML = `<div class="loading-spinner" style="width:12px;height:12px;border-width:2px"></div> Analyzing...`;
 
   const payload = {
     rust_code: rustCode,
-    c_code: document.getElementById('cEditor').value.trim() || null,
-    run_cargo_check: document.getElementById('cargoCheck').checked,
-    mode: currentMode,   // 'regex', 'ast', or 'full'
+    c_code: cCode || null,
+    run_cargo_check: document.getElementById('runCargoCheck').checked,
+    mode: currentAnalysisMode
   };
 
   try {
     const res = await fetch('/api/analyze', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(payload)
     });
 
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: res.statusText }));
-      throw new Error(err.error || res.statusText);
+    if (res.ok) {
+      const data = await res.json();
+      
+      // Merge backend issues (AST, Taint, Aliasing) with local lints
+      // Deduplicate by line and message
+      const seen = new Set();
+      const merged = [];
+      
+      const addIssue = (iss) => {
+        const key = `${iss.line}-${iss.column}-${iss.code}-${iss.message}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          merged.push(iss);
+        }
+      };
+
+      rawIssues.forEach(addIssue);
+      (data.issues || []).forEach(addIssue);
+
+      rawIssues = merged;
+      
+      analyzedMetrics = {
+        sss: data.metrics.sss,
+        uei: data.metrics.uei,
+        vrr: data.metrics.vrr,
+        lines: data.metrics.total_lines,
+        fns: data.metrics.total_functions
+      };
+
+      updateMetricsDisplay();
+      renderIssuesList();
+      updateVisualGraphData();
     }
-
-    const data = await res.json();
-    renderResults(data);
-
-  } catch (e) {
-    showError(e.message || 'Network error — is the server running?');
+  } catch (err) {
+    console.error("Server API failed, relying on local lint compiler.", err);
   } finally {
     btn.disabled = false;
-    btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M6.5 1L12 6.5L6.5 12M1 6.5H12" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> ANALYSE`;
+    btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg> Run Analysis`;
   }
-}
+};
 
-function showError(msg) {
-  document.getElementById('metricsStrip').style.display = 'none';
-  document.getElementById('filterRow').style.display = 'none';
-  document.getElementById('resultsBody').innerHTML = `
-    <div class="error-panel">⚠ ${escHtml(msg)}</div>`;
-}
+const runAnalysis = () => {
+  runAnalysisServer();
+};
 
-function renderResults(data) {
-  allIssues = data.issues || [];
-  currentFilter = 'all';
-
-  // Metrics
-  const m = data.metrics;
-  document.getElementById('mSSS').textContent = m.sss.toFixed(1) + '%';
-  document.getElementById('mSSS').style.color = m.sss >= 80 ? 'var(--green)' : m.sss >= 50 ? 'var(--yellow)' : 'var(--red)';
-  document.getElementById('mUEI').textContent = m.uei.toFixed(1) + '%';
-  document.getElementById('mUEI').style.color = m.uei > 30 ? 'var(--red)' : m.uei > 10 ? 'var(--yellow)' : 'var(--green)';
-  document.getElementById('mVRR').textContent = m.vrr;
-  document.getElementById('mVRR').style.color = m.vrr > 0 ? 'var(--red)' : 'var(--green)';
-  document.getElementById('mLines').textContent = m.total_lines;
-  document.getElementById('mLines').style.color = 'var(--text)';
-  document.getElementById('mFns').textContent = m.total_functions;
-  document.getElementById('mFns').style.color = 'var(--text)';
-
-  document.getElementById('metricsStrip').style.display = 'flex';
-
-  // Summary badge
-  const s = data.summary;
-  const total = s.total;
-  const badgeColor = s.errors > 0 ? '#e84040' : s.warnings > 0 ? '#f5c842' : '#3dd68c';
-  document.getElementById('resultsCountBadge').innerHTML =
-    `<span class="result-count-badge" style="background:${badgeColor}22;color:${badgeColor};border:1px solid ${badgeColor}44">${total} issue${total !== 1 ? 's' : ''}</span>`;
-
-  document.getElementById('elapsed').textContent = `${data.elapsed_ms}ms`;
-
-  // Filter pill counts
-  document.getElementById('pillAll').textContent = total;
-  document.getElementById('pillError').textContent = s.errors;
-  document.getElementById('pillWarning').textContent = s.warnings;
-  document.getElementById('pillInfo').textContent = s.info;
-  document.getElementById('pillHint').textContent = s.hints;
-
-  document.getElementById('filterRow').style.display = 'flex';
-
-  // Reset active tab
-  ['all','error','warning','info','hint'].forEach(t => {
-    document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1)).classList.toggle('active', t === 'all');
+const setAnalysisMode = (mode) => {
+  currentAnalysisMode = mode;
+  ['regex','ast','full'].forEach(m => {
+    document.getElementById('mode' + m.charAt(0).toUpperCase() + m.slice(1)).classList.toggle('active', m === mode);
   });
+  runAnalysisDebounced();
+};
 
-  renderIssueList(allIssues);
-}
+const resetDiagnosticsUI = () => {
+  rawIssues = [];
+  analyzedMetrics = { sss: 100, uei: 0, vrr: 0, lines: 0, fns: 0 };
+  updateMetricsDisplay();
+  
+  const container = document.getElementById('issuesList');
+  container.innerHTML = `
+    <div class="state-box" id="initialState">
+      <span style="font-size:32px">🔍</span>
+      <span class="state-title">Ready for Analysis</span>
+      <span class="state-desc">Input Rust transpiled code. Changes run automatically as you type.</span>
+    </div>`;
+  
+  updateVisualGraphData();
+};
 
-function filterIssues(filter) {
-  currentFilter = filter;
-  ['all','error','warning','info','hint'].forEach(t => {
-    document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1)).classList.toggle('active', t === filter);
-  });
+const clearWorkspace = () => {
+  setCodeValues("", "");
+  resetDiagnosticsUI();
+};
 
-  const filtered = filter === 'all' ? allIssues : allIssues.filter(i => i.severity.toLowerCase() === filter);
-  renderIssueList(filtered);
-}
+// ── RENDER METRICS ───────────────────────────────────────────────────────────
+const updateMetricsDisplay = () => {
+  const m = analyzedMetrics;
+  
+  document.getElementById('valSSS').textContent = m.sss.toFixed(1) + '%';
+  document.getElementById('valSSS').style.color = m.sss >= 85 ? 'var(--green)' : m.sss >= 55 ? 'var(--yellow)' : 'var(--red)';
 
-function renderIssueList(issues) {
-  const body = document.getElementById('resultsBody');
+  document.getElementById('valUEI').textContent = m.uei.toFixed(1) + '%';
+  document.getElementById('valUEI').style.color = m.uei > 35 ? 'var(--red)' : m.uei > 15 ? 'var(--yellow)' : 'var(--green)';
 
-  if (issues.length === 0) {
-    if (allIssues.length === 0) {
-      body.innerHTML = `
-        <div class="all-clear">
-          <div class="all-clear-icon">✓</div>
-          <div class="all-clear-msg">No issues detected. Well transpiled!</div>
-        </div>`;
-    } else {
-      body.innerHTML = `
-        <div class="state-panel">
-          <div class="state-msg">No ${currentFilter} issues.</div>
-        </div>`;
-    }
+  document.getElementById('valVRR').textContent = m.vrr;
+  document.getElementById('valVRR').style.color = m.vrr > 0 ? 'var(--red)' : 'var(--green)';
+  document.getElementById('vrrSummary').textContent = `VRR: ${m.vrr}`;
+  document.getElementById('vrrSummary').classList.toggle('badge-vrr', m.vrr > 0);
+
+  document.getElementById('valLines').textContent = m.lines;
+  document.getElementById('valFns').textContent = m.fns;
+};
+
+// ── RENDER DIAGNOSTICS CARDS ─────────────────────────────────────────────────
+const renderIssuesList = () => {
+  const container = document.getElementById('issuesList');
+  const filtered = currentSeverityFilter === 'all' 
+    ? rawIssues 
+    : rawIssues.filter(i => i.severity.toLowerCase() === currentSeverityFilter);
+
+  // Update badge counts
+  document.getElementById('issuesBadge').textContent = rawIssues.length;
+  document.getElementById('cntAll').textContent = rawIssues.length;
+  document.getElementById('cntError').textContent = rawIssues.filter(i => i.severity === 'Error').length;
+  document.getElementById('cntWarning').textContent = rawIssues.filter(i => i.severity === 'Warning').length;
+  document.getElementById('cntInfo').textContent = rawIssues.filter(i => i.severity === 'Info').length;
+  document.getElementById('cntHint').textContent = rawIssues.filter(i => i.severity === 'Hint').length;
+
+  if (filtered.length === 0) {
+    container.innerHTML = `
+      <div class="state-box">
+        <span style="font-size:24px; color:var(--green)">✓</span>
+        <span class="state-title">No Diagnostics Found</span>
+        <span class="state-desc">Current code segment passes all heuristic safety standards.</span>
+      </div>`;
     return;
   }
 
-  const scroll = document.createElement('div');
-  scroll.className = 'issues-scroll';
-
-  issues.forEach((issue, idx) => {
-    const sev = (issue.severity || 'info').toLowerCase();
-    const sevClass = `sev-${sev}`;
-    const codeClass = `code-${sev}`;
-
-    const locText = issue.line > 0 ? `L${issue.line}:${issue.column}` : '';
-
-    let extra = '';
-    if (issue.snippet) {
-      extra += `<div class="issue-snippet">${escHtml(issue.snippet)}</div>`;
-    }
+  container.innerHTML = "";
+  filtered.forEach((issue) => {
+    const card = document.createElement('div');
+    const sev = issue.severity.toLowerCase();
+    card.className = `issue-item-card sev-${sev}`;
+    
+    let sugBox = "";
     if (issue.suggestion) {
-      extra += `<div class="issue-suggestion">${escHtml(issue.suggestion)}</div>`;
+      sugBox = `<div class="issue-suggestion-box">${escapeHtml(issue.suggestion)}</div>`;
     }
 
-    const item = document.createElement('div');
-    item.className = 'issue-item';
-    item.style.animationDelay = `${idx * 18}ms`;
-    item.innerHTML = `
-      <div class="issue-sev ${sevClass}"></div>
-      <div class="issue-body">
-        <div class="issue-top">
-          <span class="issue-code ${codeClass}">${escHtml(issue.code)}</span>
-          <span style="font-size:10px;font-family:var(--font-mono);color:var(--text-dimmer)">${escHtml(issue.category || '')}</span>
-          ${locText ? `<span class="issue-loc">${locText}</span>` : ''}
-        </div>
-        <div class="issue-msg">${escHtml(issue.message)}</div>
-        ${extra}
-      </div>`;
+    card.innerHTML = `
+      <div class="issue-card-top">
+        <span class="issue-tag tag-${sev}">${issue.severity.toUpperCase()}</span>
+        <span class="issue-category-label">${issue.category.toUpperCase()} (${issue.code})</span>
+        <span class="issue-coord">Line ${issue.line}:${issue.column}</span>
+      </div>
+      <div class="issue-msg">${escapeHtml(issue.message)}</div>
+      ${sugBox}
+    `;
 
-    // Click to highlight line in editor
-    if (issue.line > 0) {
-      item.title = `Go to line ${issue.line}`;
-      item.onclick = () => goToLine(issue.line);
+    // Click behavior to navigate to line
+    card.onclick = () => {
+      highlightLineInEditor(issue.line, issue.column, card);
+    };
+
+    container.appendChild(card);
+  });
+};
+
+const filterSeverity = (sev) => {
+  currentSeverityFilter = sev;
+  const filters = ['all','error','warning','info','hint'];
+  filters.forEach(f => {
+    document.getElementById('filter' + f.charAt(0).toUpperCase() + f.slice(1)).classList.toggle('active', f === sev);
+  });
+  renderIssuesList();
+};
+
+// ── MONACO COORDINATES CONNECTOR (Overlay link line) ────────────────────────
+const highlightLineInEditor = (line, col, cardElement) => {
+  if (!isMonacoLoaded || !rustEditor) return;
+
+  // Set selection in Monaco
+  rustEditor.focus();
+  rustEditor.revealLineInCenter(line);
+  rustEditor.setPosition({ lineNumber: line, column: col });
+  rustEditor.setSelection(new monaco.Range(line, 1, line, 50));
+
+  // Compute bounding boxes to draw connector line
+  const cardRect = cardElement.getBoundingClientRect();
+  
+  // Get Monaco character coords
+  const scrolledPos = rustEditor.getScrolledVisiblePosition({ lineNumber: line, column: col });
+  if (!scrolledPos) return;
+
+  const editorContainer = document.getElementById('rustMonaco');
+  const editorRect = editorContainer.getBoundingClientRect();
+
+  // Coordinates mapping
+  const startX = editorRect.left + scrolledPos.left;
+  const startY = editorRect.top + scrolledPos.top;
+  
+  const endX = cardRect.left;
+  const endY = cardRect.top + (cardRect.height / 2);
+
+  drawConnectorLine(startX, startY, endX, endY);
+};
+
+const drawConnectorLine = (x1, y1, x2, y2) => {
+  const path = document.getElementById('connectorPath');
+  
+  // Curved bezier line
+  const controlDist = Math.abs(x2 - x1) * 0.5;
+  const d = `M ${x1} ${y1} C ${x1 + controlDist} ${y1}, ${x2 - controlDist} ${y2}, ${x2} ${y2}`;
+  
+  path.setAttribute('d', d);
+  path.style.opacity = '1';
+
+  // Fade out line after brief delay
+  setTimeout(() => {
+    path.style.opacity = '0';
+  }, 1800);
+};
+
+// ── DYNAMIC 2D CANVAS PHYSICS AST/OWNERSHIP GRAPH ───────────────────────────
+let nodes = [];
+let links = [];
+let graphParticles = [];
+let dragNode = null;
+let offsetLeft = 0;
+let offsetTop = 0;
+let graphScale = 1.0;
+let originX = 0;
+let originY = 0;
+
+const initGraphCanvas = () => {
+  const canvas = document.getElementById('nodeGraphCanvas');
+  const ctx = canvas.getContext('2d');
+  let width = canvas.width = canvas.parentElement.clientWidth;
+  let height = canvas.height = canvas.parentElement.clientHeight;
+
+  originX = width / 2;
+  originY = height / 2;
+
+  let isDraggingGraph = false;
+  let startDragX = 0;
+  let startDragY = 0;
+
+  // Physics updates loop
+  const updatePhysics = () => {
+    // Basic spring/physics layout
+    const k = 0.08; // spring constant
+    const rep = 350; // repulsion factor
+    
+    // Repulsion between nodes
+    for (let i = 0; i < nodes.length; i++) {
+      const n1 = nodes[i];
+      for (let j = i + 1; j < nodes.length; j++) {
+        const n2 = nodes[j];
+        const dx = n2.x - n1.x;
+        const dy = n2.y - n1.y;
+        const dist = Math.hypot(dx, dy) || 1;
+        if (dist < 180) {
+          const force = rep / (dist * dist);
+          const fx = (dx / dist) * force;
+          const fy = (dy / dist) * force;
+          if (n1 !== dragNode) { n1.x -= fx; n1.y -= fy; }
+          if (n2 !== dragNode) { n2.x += fx; n2.y += fy; }
+        }
+      }
     }
 
-    scroll.appendChild(item);
+    // Spring forces on links
+    links.forEach(link => {
+      const n1 = nodes[link.source];
+      const n2 = nodes[link.target];
+      if (!n1 || !n2) return;
+      const dx = n2.x - n1.x;
+      const dy = n2.y - n1.y;
+      const dist = Math.hypot(dx, dy) || 1;
+      const targetDist = 130;
+      const force = (dist - targetDist) * k;
+      const fx = (dx / dist) * force;
+      const fy = (dy / dist) * force;
+      if (n1 !== dragNode) { n1.x += fx; n1.y += fy; }
+      if (n2 !== dragNode) { n2.x -= fx; n2.y -= fy; }
+    });
+
+    // Boundaries/gravity pull to center
+    nodes.forEach(node => {
+      if (node === dragNode) return;
+      node.x += (0 - node.x) * 0.01;
+      node.y += (0 - node.y) * 0.01;
+    });
+
+    // Update taint flow particles
+    graphParticles.forEach((part, idx) => {
+      part.progress += part.speed;
+      if (part.progress >= 1) {
+        // Find next route/link or recycle
+        part.progress = 0;
+      }
+    });
+  };
+
+  const draw = () => {
+    ctx.clearRect(0, 0, width, height);
+
+    ctx.save();
+    ctx.translate(originX, originY);
+    ctx.scale(graphScale, graphScale);
+
+    // Draw Links
+    ctx.strokeStyle = themeColors.textDim + '22';
+    ctx.lineWidth = 2;
+    links.forEach(link => {
+      const n1 = nodes[link.source];
+      const n2 = nodes[link.target];
+      if (!n1 || !n2) return;
+      ctx.beginPath();
+      ctx.moveTo(n1.x, n1.y);
+      ctx.lineTo(n2.x, n2.y);
+      ctx.stroke();
+    });
+
+    // Draw Taint Particles along links
+    ctx.fillStyle = themeColors.green;
+    graphParticles.forEach(part => {
+      const n1 = nodes[part.source];
+      const n2 = nodes[part.target];
+      if (!n1 || !n2) return;
+      const x = n1.x + (n2.x - n1.x) * part.progress;
+      const y = n1.y + (n2.y - n1.y) * part.progress;
+      
+      ctx.beginPath();
+      ctx.arc(x, y, 4, 0, Math.PI * 2);
+      ctx.shadowBlur = 8;
+      ctx.shadowColor = themeColors.green;
+      ctx.fill();
+      ctx.shadowBlur = 0; // reset
+    });
+
+    // Draw Nodes
+    nodes.forEach(node => {
+      ctx.save();
+      let drawColor = node.color;
+      if (drawColor && drawColor.startsWith('var(')) {
+        if (drawColor.includes('--accent-rust')) drawColor = themeColors.accentRust;
+        else if (drawColor.includes('--accent-cyan')) drawColor = themeColors.accentCyan;
+        else if (drawColor.includes('--accent-rose')) drawColor = themeColors.accentRose;
+      }
+
+      ctx.shadowBlur = node.hovered ? 12 : 0;
+      ctx.shadowColor = drawColor;
+
+      ctx.fillStyle = themeColors.bgGlassHi;
+      ctx.strokeStyle = drawColor;
+      ctx.lineWidth = node.hovered ? 3 : 1.5;
+
+      ctx.beginPath();
+      ctx.arc(node.x, node.y, node.r, 0, Math.PI*2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Node label
+      ctx.fillStyle = themeColors.text;
+      ctx.font = '10px "Inter"';
+      ctx.textAlign = 'center';
+      ctx.fillText(node.label, node.x, node.y + 4);
+
+      // Node subtext/lifetime label
+      if (node.sub) {
+        ctx.fillStyle = themeColors.textDim;
+        ctx.font = '8px "JetBrains Mono"';
+        ctx.fillText(node.sub, node.x, node.y - 12);
+      }
+      ctx.restore();
+    });
+
+    ctx.restore();
+
+    updatePhysics();
+    requestAnimationFrame(draw);
+  };
+
+  // Drag listeners
+  canvas.addEventListener('mousedown', e => {
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = (e.clientX - rect.left - originX) / graphScale;
+    const mouseY = (e.clientY - rect.top - originY) / graphScale;
+
+    // Check hit node
+    let hit = null;
+    nodes.forEach(node => {
+      const d = Math.hypot(node.x - mouseX, node.y - mouseY);
+      if (d < node.r) hit = node;
+    });
+
+    if (hit) {
+      dragNode = hit;
+    } else {
+      isDraggingGraph = true;
+      startDragX = e.clientX - originX;
+      startDragY = e.clientY - originY;
+    }
   });
 
-  body.innerHTML = '';
-  body.appendChild(scroll);
-}
+  canvas.addEventListener('mousemove', e => {
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = (e.clientX - rect.left - originX) / graphScale;
+    const mouseY = (e.clientY - rect.top - originY) / graphScale;
 
-function goToLine(lineNo) {
-  const ta = document.getElementById('rustEditor');
-  const lines = ta.value.split('\n');
-  let pos = 0;
-  for (let i = 0; i < Math.min(lineNo - 1, lines.length); i++) {
-    pos += lines[i].length + 1;
+    if (dragNode) {
+      dragNode.x = mouseX;
+      dragNode.y = mouseY;
+    } else if (isDraggingGraph) {
+      originX = e.clientX - startDragX;
+      originY = e.clientY - startDragY;
+    }
+
+    // Hover state check
+    nodes.forEach(node => {
+      const d = Math.hypot(node.x - mouseX, node.y - mouseY);
+      node.hovered = d < node.r;
+    });
+  });
+
+  window.addEventListener('mouseup', () => {
+    dragNode = null;
+    isDraggingGraph = false;
+  });
+
+  draw();
+
+  window.addEventListener('resize', () => {
+    if (canvas.parentElement) {
+      width = canvas.width = canvas.parentElement.clientWidth;
+      height = canvas.height = canvas.parentElement.clientHeight;
+    }
+  });
+};
+
+// Recenter Graph layout
+const recenterGraph = () => {
+  const canvas = document.getElementById('nodeGraphCanvas');
+  originX = canvas.width / 2;
+  originY = canvas.height / 2;
+  graphScale = 1.0;
+  // Redistribute nodes
+  nodes.forEach((n, idx) => {
+    const angle = (idx / nodes.length) * Math.PI * 2;
+    n.x = Math.cos(angle) * 120;
+    n.y = Math.sin(angle) * 120;
+  });
+};
+
+const clearTaintParticles = () => {
+  graphParticles = [];
+};
+
+// ── PARSE RUST CODE FOR AST DYNAMIC NODES ──
+const updateVisualGraphData = () => {
+  const code = getRustCode();
+  if (!code.trim()) {
+    nodes = [];
+    links = [];
+    graphParticles = [];
+    return;
   }
-  ta.focus();
-  ta.setSelectionRange(pos, pos + (lines[lineNo - 1] || '').length);
-  // Scroll textarea to line
-  const lineHeight = 19.2;
-  ta.scrollTop = (lineNo - 5) * lineHeight;
-}
 
-// ── RESIZE HANDLE ─────────────────────────────────────────────────────────────
-(function() {
-  const handle = document.getElementById('resizeHandle');
+  const tempNodes = [];
+  const tempLinks = [];
+
+  // Parse Structs
+  const structRegex = /struct\s+(\w+)/g;
+  let match;
+  while ((match = structRegex.exec(code)) !== null) {
+    tempNodes.push({
+      label: match[1],
+      sub: "struct",
+      r: 28,
+      color: 'var(--accent-rust)',
+      x: (Math.random() - 0.5) * 180,
+      y: (Math.random() - 0.5) * 180
+    });
+  }
+
+  // Parse functions
+  const fnRegex = /fn\s+(\w+)/g;
+  while ((match = fnRegex.exec(code)) !== null) {
+    tempNodes.push({
+      label: match[1] + "()",
+      sub: "function",
+      r: 26,
+      color: 'var(--accent-cyan)',
+      x: (Math.random() - 0.5) * 180,
+      y: (Math.random() - 0.5) * 180
+    });
+  }
+
+  // Parse unsafe blocks
+  const unsafeRegex = /unsafe\s*\{/g;
+  let uIdx = 1;
+  while ((match = unsafeRegex.exec(code)) !== null) {
+    tempNodes.push({
+      label: `UnsafeBlock_${uIdx++}`,
+      sub: "unsafe scope",
+      r: 24,
+      color: 'var(--accent-rose)',
+      x: (Math.random() - 0.5) * 180,
+      y: (Math.random() - 0.5) * 180
+    });
+  }
+
+  // Create connections
+  // Link structural nodes to functions
+  for (let i = 0; i < tempNodes.length; i++) {
+    for (let j = i + 1; j < tempNodes.length; j++) {
+      // Connect struct to functions, or functions to unsafe blocks
+      if (tempNodes[i].sub === "struct" && tempNodes[j].sub === "function") {
+        tempLinks.push({ source: i, target: j });
+      } else if (tempNodes[i].sub === "function" && tempNodes[j].sub === "unsafe scope") {
+        tempLinks.push({ source: i, target: j });
+      }
+    }
+  }
+
+  nodes = tempNodes;
+  links = tempLinks;
+
+  // Add taint flow particles if unsafe blocks or memory warnings exist
+  if (rawIssues.length > 0 && links.length > 0) {
+    graphParticles = [];
+    links.forEach((l, idx) => {
+      // Spawn 1-2 flowing neon particles per link
+      graphParticles.push({
+        source: l.source,
+        target: l.target,
+        progress: Math.random(),
+        speed: 0.005 + Math.random() * 0.005
+      });
+    });
+  }
+};
+
+// ── TAB SWITCHER ──
+const switchTab = (tab) => {
+  currentTab = tab;
+  document.getElementById('tabIssues').classList.toggle('active', tab === 'issues');
+  document.getElementById('tabGraph').classList.toggle('active', tab === 'graph');
+  
+  document.getElementById('contentIssues').classList.toggle('active', tab === 'issues');
+  document.getElementById('contentGraph').classList.toggle('active', tab === 'graph');
+};
+
+// ── WORKSPACE DRAG RESIZE HANDLE ──
+const initWorkspaceResize = () => {
+  const handle = document.getElementById('workspaceDragHandle');
+  const editorsPanel = document.getElementById('editorsPanel');
   const workspace = document.getElementById('workspace');
-  const editors = document.getElementById('editorsPanel');
-  let dragging = false;
+  let isDragging = false;
   let startX, startW;
 
   handle.addEventListener('mousedown', e => {
-    dragging = true;
+    isDragging = true;
     startX = e.clientX;
-    startW = editors.offsetWidth;
+    startW = editorsPanel.offsetWidth;
     handle.classList.add('dragging');
     document.body.style.cursor = 'col-resize';
     document.body.style.userSelect = 'none';
   });
 
   document.addEventListener('mousemove', e => {
-    if (!dragging) return;
-    const delta = e.clientX - startX;
-    const newW = Math.max(320, Math.min(startW + delta, workspace.offsetWidth - 300));
-    editors.style.width = newW + 'px';
-    editors.style.flex = 'none';
+    if (!isDragging) return;
+    const deltaX = e.clientX - startX;
+    const newWidth = Math.max(300, Math.min(startW + deltaX, workspace.offsetWidth - 300));
+    editorsPanel.style.width = newWidth + 'px';
   });
 
   document.addEventListener('mouseup', () => {
-    if (!dragging) return;
-    dragging = false;
+    if (!isDragging) return;
+    isDragging = false;
     handle.classList.remove('dragging');
     document.body.style.cursor = '';
     document.body.style.userSelect = '';
+    // Notify Monaco to layout
+    if (isMonacoLoaded && rustEditor && cEditor) {
+      rustEditor.layout();
+      cEditor.layout();
+    }
   });
-})();
+};
 
-// ── KEYBOARD SHORTCUT ─────────────────────────────────────────────────────────
-document.addEventListener('keydown', e => {
-  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-    e.preventDefault();
-    runAnalysis();
-  }
-});
+// ── SAMPLES UTILS ──
+const SAMPLE_CODES = {
+  unsafe: [
+`// Transpiled Rust containing heavy raw pointer interactions
+use std::ptr;
 
-// ── UTIL ──────────────────────────────────────────────────────────────────────
-function escHtml(s) {
-  return String(s)
-    .replace(/&/g,'&amp;')
-    .replace(/</g,'&lt;')
-    .replace(/>/g,'&gt;')
-    .replace(/"/g,'&quot;');
+pub struct BufferWrapper {
+    raw_buf: *mut u8,
+    size: usize,
 }
+
+impl BufferWrapper {
+    pub unsafe fn write_data(&mut self, data: *const u8, offset: usize) {
+        let dest = self.raw_buf.add(offset);
+        ptr::copy_nonoverlapping(data, dest, 128); // ← CWE-120: Vulnerability Retained
+    }
+
+    pub fn cast_to_int(ptr: *const i8) -> i32 {
+        unsafe {
+            let casted = ptr as *mut i32; // ← Aliasing warning
+            *casted
+        }
+    }
+}`,
+`#include <stdio.h>
+#include <string.h>
+
+void write_data(char *raw_buf, char *data, int offset) {
+    char *dest = raw_buf + offset;
+    memcpy(dest, data, 128); // buffer overflow risk
+}`
+  ],
+  llm: [
+`// LLM-hallucinated lifetime patterns and direct C dereferences
+fn load_configs<'static>(input: *const u8) -> &'static str {
+    unsafe {
+        let name = input as *const i8; // Narrowing cast warning
+        let c_str = std::ffi::CStr::from_ptr(name);
+        c_str.to_str().unwrap()
+    }
+}
+
+fn bypass_safety(data: &Vec<u32>, index: usize) -> u32 {
+    unsafe {
+        *data.get_unchecked(index) // Direct C array syntax mapping
+    }
+}`,
+`const char* load_configs(const char* input) {
+    return input;
+}`
+  ],
+  aliasing: [
+`// Unsafe union structures translating pointer aliasing
+union PointerUnion {
+    raw_ptr: *mut u8,
+    offset_val: usize,
+}
+
+pub fn aliased_deref(p1: *mut i32, p2: *mut i32) {
+    unsafe {
+        std::ptr::write(p1, 10);
+        std::ptr::write(p2, 20); // Possible overlapping memory aliasing
+    }
+}`,
+`union PointerUnion {
+    char *raw_ptr;
+    size_t offset_val;
+};`
+  ]
+};
+
+const loadWorkspaceSample = (sampleKey) => {
+  const sample = SAMPLE_CODES[sampleKey];
+  if (sample) {
+    setCodeValues(sample[0], sample[1]);
+  }
+};
+
+const escapeHtml = (text) => {
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+};
+
+// Initialize app on load
+window.onload = () => {
+  // Load saved theme or default to dark
+  const savedTheme = localStorage.getItem('rustguard-theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', savedTheme);
+  updateCachedThemeColors();
+
+  initBackgroundCanvas();
+  initMonaco();
+  initGraphCanvas();
+  initWorkspaceResize();
+};
+
 </script>
 </body>
 </html>

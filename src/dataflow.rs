@@ -265,16 +265,18 @@ impl<'ast> Visit<'ast> for DataFlowAnalyzer {
 
     // ── Track raw pointer variable bindings ───────────────────────────────
     fn visit_local(&mut self, node: &'ast Local) {
-        // let x = *raw_ptr  →  x is tainted
         if let Some(init) = &node.init {
-            if let Expr::Unary(u) = init.expr.as_ref() {
-                if matches!(u.op, syn::UnOp::Deref(_)) {
-                    // Dereference — taint the bound variable
-                    if let Pat::Ident(pi) = &node.pat {
-                        let var = pi.ident.to_string();
-                        let (line, col) = Self::span_lc(pi.ident.span());
+            let expr = unwrap_unsafe_expr(init.expr.as_ref());
+            let (var_name, annotated_ty, pat_span) = extract_pat_ident_and_type(&node.pat);
+
+            if let Some(var) = &var_name {
+                let (line, col) = Self::span_lc(pat_span);
+
+                // 1. Dereference — taint the bound variable
+                if let Expr::Unary(u) = expr {
+                    if matches!(u.op, syn::UnOp::Deref(_)) {
                         if let Some(state) = self.fn_stack.last_mut() {
-                            state.mark_tainted(&var, TaintSource::RawPtrDeref);
+                            state.mark_tainted(var, TaintSource::RawPtrDeref);
                             // Also flag: is the deref of a raw ptr without null check?
                             if let Expr::Path(p) = u.expr.as_ref() {
                                 let ptr_name = p.path.segments.last()
@@ -291,48 +293,50 @@ impl<'ast> Visit<'ast> for DataFlowAnalyzer {
                     }
                 }
 
-                // let x = std::mem::transmute(...)  →  taint x
-                if let Expr::Call(call) = init.expr.as_ref() {
+                // 2. std::mem::transmute(...) — taint the bound variable
+                if let Expr::Call(call) = expr {
                     if is_transmute_call(&call.func) {
-                        if let Pat::Ident(pi) = &node.pat {
-                            let var = pi.ident.to_string();
-                            if let Some(state) = self.fn_stack.last_mut() {
-                                state.mark_tainted(&var, TaintSource::Transmute);
-                            }
+                        if let Some(state) = self.fn_stack.last_mut() {
+                            state.mark_tainted(var, TaintSource::Transmute);
                         }
                     }
                 }
-            }
 
-            // let p: *mut T = ...  →  track as raw pointer variable
-            if let Pat::Ident(pi) = &node.pat {
-                if let Some(ty) = get_local_type(node) {
-                    if matches!(ty, syn::Type::Ptr(_)) {
-                        let var = pi.ident.to_string();
-                        if let Some(state) = self.fn_stack.last_mut() {
-                            state.raw_ptrs.insert(var);
+                // 3. Taint propagation through variable binding: let y = x;
+                if let Some(rhs_var) = Self::expr_to_var(expr) {
+                    if let Some(state) = self.fn_stack.last_mut() {
+                        if let Some(src) = state.tainted.get(&rhs_var).cloned() {
+                            state.mark_tainted(var, src);
                         }
                     }
                 }
-            }
 
-            // let x = Box::from_raw(p)  →  track for double-free detection
-            if let Expr::Call(call) = init.expr.as_ref() {
-                if is_box_from_raw(&call.func) {
-                    if let Pat::Ident(pi) = &node.pat {
-                        let var = pi.ident.to_string();
+                // 4. Box::from_raw(p) — track for double-free detection
+                if let Expr::Call(call) = expr {
+                    if is_box_from_raw(&call.func) {
                         if let Some(state) = self.fn_stack.last_mut() {
-                            if state.from_raw.contains(&var) {
-                                // already seen — double free risk
-                                let (line, col) = Self::span_lc(pi.ident.span());
+                            if state.from_raw.contains(var) {
                                 state.issues.push((
                                     line, col,
                                     LlmBugClass::LogicBugRetained,
                                     format!("'{}' re-boxed from raw — possible double-free (C free() pattern retained)", var),
                                 ));
                             }
-                            state.from_raw.insert(var);
+                            state.from_raw.insert(var.clone());
                         }
+                    }
+                }
+
+                // 5. Track raw pointer variables
+                let is_ptr = if let Some(ty) = annotated_ty {
+                    matches!(ty, syn::Type::Ptr(_))
+                } else {
+                    matches!(expr, Expr::Cast(c) if matches!(c.ty.as_ref(), syn::Type::Ptr(_)))
+                };
+
+                if is_ptr {
+                    if let Some(state) = self.fn_stack.last_mut() {
+                        state.raw_ptrs.insert(var.clone());
                     }
                 }
             }
@@ -348,9 +352,18 @@ impl<'ast> Visit<'ast> for DataFlowAnalyzer {
         syn::visit::visit_expr_index(self, node);
     }
 
-    // ── Detect aliasing: two assignments to mut ptr fields ────────────────
+    // ── Detect aliasing and taint propagation in assignments ──────────────
     fn visit_expr_assign(&mut self, node: &'ast ExprAssign) {
-        // If assigning to a raw pointer, check if same memory object assigned twice
+        // If rhs is tainted, lhs becomes tainted
+        if let Some(rhs_var) = Self::expr_to_var(&node.right) {
+            if let Some(lhs_var) = Self::expr_to_var(&node.left) {
+                if let Some(state) = self.fn_stack.last_mut() {
+                    if let Some(src) = state.tainted.get(&rhs_var).cloned() {
+                        state.mark_tainted(&lhs_var, src);
+                    }
+                }
+            }
+        }
         syn::visit::visit_expr_assign(self, node);
     }
 
@@ -390,6 +403,27 @@ impl<'ast> Visit<'ast> for DataFlowAnalyzer {
         }
 
         syn::visit::visit_expr_method_call(self, node);
+    }
+
+    // ── Check taint in binary operations ─────────────────────────────────
+    fn visit_expr_binary(&mut self, node: &'ast ExprBinary) {
+        self.check_taint_in_expr(&node.left);
+        self.check_taint_in_expr(&node.right);
+        syn::visit::visit_expr_binary(self, node);
+    }
+
+    // ── Check taint in unary operations ──────────────────────────────────
+    fn visit_expr_unary(&mut self, node: &'ast ExprUnary) {
+        self.check_taint_in_expr(&node.expr);
+        syn::visit::visit_expr_unary(self, node);
+    }
+
+    // ── Check taint in returns ───────────────────────────────────────────
+    fn visit_expr_return(&mut self, node: &'ast ExprReturn) {
+        if let Some(expr) = &node.expr {
+            self.check_taint_in_expr(expr);
+        }
+        syn::visit::visit_expr_return(self, node);
     }
 }
 
@@ -440,10 +474,47 @@ fn is_box_from_raw(func: &Expr) -> bool {
     } else { false }
 }
 
-fn get_local_type(node: &Local) -> Option<&syn::Type> {
-    if let Pat::Type(pt) = &node.pat {
-        Some(&pt.ty)
-    } else { None }
+fn unwrap_unsafe_expr(mut expr: &Expr) -> &Expr {
+    loop {
+        match expr {
+            Expr::Block(eb) => {
+                if eb.block.stmts.len() == 1 {
+                    if let syn::Stmt::Expr(inner, _) = &eb.block.stmts[0] {
+                        expr = inner;
+                        continue;
+                    }
+                }
+                break;
+            }
+            Expr::Unsafe(eu) => {
+                if eu.block.stmts.len() == 1 {
+                    if let syn::Stmt::Expr(inner, _) = &eu.block.stmts[0] {
+                        expr = inner;
+                        continue;
+                    }
+                }
+                break;
+            }
+            _ => break,
+        }
+    }
+    expr
+}
+
+fn extract_pat_ident_and_type(pat: &Pat) -> (Option<String>, Option<&syn::Type>, proc_macro2::Span) {
+    use syn::spanned::Spanned;
+    match pat {
+        Pat::Ident(pi) => (Some(pi.ident.to_string()), None, pi.span()),
+        Pat::Type(pt) => {
+            let name = if let Pat::Ident(pi) = pt.pat.as_ref() {
+                Some(pi.ident.to_string())
+            } else {
+                None
+            };
+            (name, Some(pt.ty.as_ref()), pt.span())
+        }
+        _ => (None, None, pat.span()),
+    }
 }
 
 // ── Public entry point ────────────────────────────────────────────────────────

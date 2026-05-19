@@ -1,1 +1,7 @@
 /target
+/target/
+*.exe
+*.log
+.system_generated/
+.agents/
+.gemini/

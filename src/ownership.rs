@@ -16,6 +16,7 @@ use syn::{
     ItemFn, Local, Pat, Expr, ExprCall, ExprMethodCall,
     Stmt, FnArg,
 };
+use syn::spanned::Spanned;
 use proc_macro2::Span;
 use std::collections::HashMap;
 
@@ -103,6 +104,24 @@ impl OwnershipGraph {
                     suggestion: "Replace .clone() with & borrows. Excessive cloning indicates the LLM modelled C++ copy semantics instead of Rust borrows.".to_string(),
                 });
             }
+        }
+    }
+
+    fn record_use(&mut self, name: &str, line: usize) {
+        if let Some(v) = self.vars.get_mut(name) {
+            if v.state == OwnershipState::Moved {
+                self.issues.push(OwnershipIssue {
+                    line, col: 1,
+                    code: "OWN002",
+                    severity: Severity::Error,
+                    message: format!(
+                        "Variable '{}' used after move in fn '{}' — LLM double-consume pattern (like C++ after std::move)",
+                        name, self.fn_name
+                    ),
+                    suggestion: "Track ownership: once moved, the variable is invalid. Use Option<T>::take() or restructure.".to_string(),
+                });
+            }
+            v.last_use_line = line;
         }
     }
 
@@ -223,19 +242,22 @@ impl<'ast> Visit<'ast> for OwnershipAnalyzer {
 
     fn visit_local(&mut self, node: &'ast Local) {
         if let Some(g) = self.graph_stack.last_mut() {
-            if let Pat::Ident(pi) = &node.pat {
-                let var = pi.ident.to_string();
-                let (line, _) = Self::span_lc(pi.ident.span());
+            let (var_name, annotated_ty, pat_span) = extract_pat_ident_and_type(&node.pat);
+            if let Some(var) = var_name {
+                let (line, _) = Self::span_lc(pat_span);
                 let is_ptr = node.init.as_ref()
                     .map(|i| expr_contains_raw_ptr(&i.expr))
                     .unwrap_or(false);
                 g.define(&var, line, is_ptr);
 
-                // Check for Box::from_raw
                 if let Some(init) = &node.init {
+                    // If initializer is a path, it's a move of the RHS
+                    if let Some(rhs_name) = expr_to_ident(&init.expr) {
+                        g.record_move(&rhs_name, line);
+                    }
+                    // Check for Box::from_raw
                     if let Expr::Call(call) = init.expr.as_ref() {
                         if is_from_raw_call(&call.func) {
-                            // The argument name is what gets double-freed
                             if let Some(arg) = call.args.first() {
                                 if let Some(arg_name) = expr_to_ident(arg) {
                                     g.record_from_raw(&arg_name, line);
@@ -250,6 +272,39 @@ impl<'ast> Visit<'ast> for OwnershipAnalyzer {
         syn::visit::visit_local(self, node);
     }
 
+    fn visit_expr_path(&mut self, node: &'ast syn::ExprPath) {
+        if let Some(g) = self.graph_stack.last_mut() {
+            if node.path.segments.len() == 1 {
+                let name = node.path.segments[0].ident.to_string();
+                let (line, _) = Self::span_lc(node.path.segments[0].ident.span());
+                g.record_use(&name, line);
+            }
+        }
+        syn::visit::visit_expr_path(self, node);
+    }
+
+    fn visit_expr_assign(&mut self, node: &'ast syn::ExprAssign) {
+        if let Some(g) = self.graph_stack.last_mut() {
+            if let Some(rhs_name) = expr_to_ident(&node.right) {
+                let (line, _) = Self::span_lc(node.right.span());
+                g.record_move(&rhs_name, line);
+            }
+        }
+        syn::visit::visit_expr_assign(self, node);
+    }
+
+    fn visit_expr_call(&mut self, node: &'ast syn::ExprCall) {
+        if let Some(g) = self.graph_stack.last_mut() {
+            for arg in &node.args {
+                if let Some(arg_name) = expr_to_ident(arg) {
+                    let (line, _) = Self::span_lc(arg.span());
+                    g.record_move(&arg_name, line);
+                }
+            }
+        }
+        syn::visit::visit_expr_call(self, node);
+    }
+
     fn visit_expr_method_call(&mut self, node: &'ast ExprMethodCall) {
         let method = node.method.to_string();
         let (line, _) = Self::span_lc(node.method.span());
@@ -259,14 +314,48 @@ impl<'ast> Visit<'ast> for OwnershipAnalyzer {
                 if let Some(recv_name) = expr_to_ident(&node.receiver) {
                     g.record_clone(&recv_name, line);
                 }
+            } else {
+                for arg in &node.args {
+                    if let Some(arg_name) = expr_to_ident(arg) {
+                        g.record_move(&arg_name, line);
+                    }
+                }
             }
         }
 
         syn::visit::visit_expr_method_call(self, node);
     }
+
+    fn visit_expr_return(&mut self, node: &'ast syn::ExprReturn) {
+        if let Some(g) = self.graph_stack.last_mut() {
+            if let Some(expr) = &node.expr {
+                if let Some(name) = expr_to_ident(expr) {
+                    let (line, _) = Self::span_lc(expr.span());
+                    g.record_move(&name, line);
+                }
+            }
+        }
+        syn::visit::visit_expr_return(self, node);
+    }
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+
+fn extract_pat_ident_and_type(pat: &Pat) -> (Option<String>, Option<&syn::Type>, proc_macro2::Span) {
+    use syn::spanned::Spanned;
+    match pat {
+        Pat::Ident(pi) => (Some(pi.ident.to_string()), None, pi.span()),
+        Pat::Type(pt) => {
+            let name = if let Pat::Ident(pi) = pt.pat.as_ref() {
+                Some(pi.ident.to_string())
+            } else {
+                None
+            };
+            (name, Some(pt.ty.as_ref()), pt.span())
+        }
+        _ => (None, None, pat.span()),
+    }
+}
 
 fn expr_to_ident(expr: &Expr) -> Option<String> {
     if let Expr::Path(p) = expr {
