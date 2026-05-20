@@ -1,3 +1,13 @@
+---
+title: Rust Guard Workspace
+emoji: 🦀
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # 🦀 RustGuard Workspace (v0.3)
 
 [![Rust Version](https://img.shields.io/badge/rust-v1.70%2B-orange?style=for-the-badge&logo=rust)](https://www.rust-lang.org/)
